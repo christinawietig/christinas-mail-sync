@@ -1,0 +1,122 @@
+"""Einstellungen und Speicherorte.
+
+Im Programm stehen keine Servernamen. Sie kommen aus einer Einstellungsdatei
+(siehe examples/mailsync-profil.json), die man beim ersten Start laedt, oder
+werden von Hand eingetragen. Gespeichert wird alles in settings.json im
+Datenordner, die Passwoerter getrennt im Schluesselbund (siehe credentials.py).
+"""
+import json
+import os
+import sys
+from dataclasses import asdict, dataclass, field
+
+from . import APP_NAME
+
+DEFAULT_PORT = 993
+
+
+def data_dir():
+    """Ordner fuer Einstellungen, Statusdatei und Logs (wird angelegt)."""
+    if sys.platform == "win32":
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    elif sys.platform == "darwin":
+        base = os.path.expanduser("~/Library/Application Support")
+    else:
+        base = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    path = os.path.join(base, APP_NAME)
+    os.makedirs(path, exist_ok=True)
+    if sys.platform != "win32":
+        os.chmod(path, 0o700)  # nur fuer den eigenen Benutzer lesbar
+    return path
+
+
+def state_file():
+    """Message-IDs aller Mails, die schon im Ziel angekommen sind."""
+    return os.path.join(data_dir(), "uebertragen.txt")
+
+
+def log_dir():
+    path = os.path.join(data_dir(), "Logs")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+@dataclass
+class Settings:
+    source_host: str = ""
+    source_port: int = DEFAULT_PORT
+    source_user: str = ""
+    target_host: str = ""
+    target_port: int = DEFAULT_PORT
+    target_user: str = ""
+    # Quellordner, die nie uebertragen werden (regulaere Ausdruecke)
+    exclude: list = field(default_factory=list)
+    # "localpart": neuer Benutzername = Teil der alten Adresse vor dem @, "same": gleich
+    target_user_rule: str = ""
+    profile_name: str = ""
+
+    @property
+    def complete(self):
+        return bool(self.source_host and self.source_user and self.target_host and self.target_user)
+
+    def suggest_target_user(self, source_user):
+        if self.target_user_rule == "localpart":
+            return source_user.split("@", 1)[0].strip()
+        if self.target_user_rule == "same":
+            return source_user.strip()
+        return ""
+
+
+def _settings_path():
+    return os.path.join(data_dir(), "settings.json")
+
+
+def _from_dict(raw, base=None):
+    s = base or Settings()
+    for name in Settings.__dataclass_fields__:
+        if name in raw:
+            setattr(s, name, raw[name])
+    return s
+
+
+def load_settings():
+    try:
+        with open(_settings_path(), encoding="utf-8") as f:
+            return _from_dict(json.load(f))
+    except (OSError, ValueError):
+        return Settings()
+
+
+def save_settings(settings):
+    path = _settings_path()
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(asdict(settings), f, indent=2, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
+class ProfileError(Exception):
+    pass
+
+
+def load_profile(path, base):
+    """Liest eine Einstellungsdatei und uebernimmt Server, Ports, Ausschluesse und
+    Benutzernamen-Regel in eine Kopie von base. Benutzernamen bleiben unberuehrt."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            raw = json.load(f)
+        src, dst = raw["source"], raw["target"]
+        profile = {
+            "profile_name": str(raw.get("name", "")),
+            "source_host": str(src["host"]).strip(),
+            "source_port": int(src.get("port", DEFAULT_PORT)),
+            "target_host": str(dst["host"]).strip(),
+            "target_port": int(dst.get("port", DEFAULT_PORT)),
+            "exclude": [str(e) for e in raw.get("exclude", [])],
+            "target_user_rule": str(raw.get("target_user", "")),
+        }
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as e:
+        raise ProfileError("Die Einstellungsdatei ist nicht lesbar (%s)." % e)
+    if not profile["source_host"] or not profile["target_host"]:
+        raise ProfileError("In der Einstellungsdatei fehlen die Servernamen.")
+    return _from_dict(profile, Settings(**asdict(base)))

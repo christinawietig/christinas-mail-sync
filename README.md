@@ -1,0 +1,112 @@
+# Christinas Mail-Sync
+
+Kopiert Mails von einem alten IMAP-Postfach in ein neues, zum Beispiel beim Wechsel des Mailanbieters.
+Für Windows und Mac, ohne Installation von Zusatzprogrammen.
+
+- **Jede Mail wird genau einmal übertragen.** Man kann so oft synchronisieren, wie man will.
+- **Nur eine Richtung:** Im alten Postfach wird nichts verändert, im neuen wird nichts gelöscht.
+- **Ordner bleiben erhalten**, ebenso Datum und Gelesen-Markierung.
+
+## Herunterladen
+
+Unter [Releases](https://github.com/christinawietig/christinas-mail-sync/releases/latest):
+
+- **Windows:** `Christinas-Mail-Sync-Windows.exe`
+- **Mac (mit Apple-Chip, ab 2020):** `Christinas-Mail-Sync-macOS.zip`
+
+## Erster Start
+
+Die App ist nicht bei Apple oder Microsoft registriert. Deshalb warnt der Computer beim ersten Start einmalig.
+
+**Mac**
+
+1. Die ZIP-Datei doppelklicken und **Christinas Mail-Sync** in den Ordner **Programme** ziehen.
+2. Die App doppelklicken. Es erscheint eine Warnung. Auf **Fertig** klicken.
+3. **Systemeinstellungen → Datenschutz & Sicherheit** öffnen, ganz nach unten scrollen und bei
+   „Christinas Mail-Sync“ auf **Dennoch öffnen** klicken.
+
+**Windows**
+
+1. Die Datei doppelklicken. Falls „Der Computer wurde durch Windows geschützt“ erscheint:
+   auf **Weitere Informationen** und dann auf **Trotzdem ausführen** klicken.
+
+**Danach** fragt die App einmalig nach den Zugangsdaten für beide Postfächer und prüft sie:
+
+1. Wer eine **Einstellungsdatei** bekommen hat (`mailsync-profil.json`), klickt auf
+   **Einstellungsdatei laden …** und wählt sie aus. Damit sind die Server eingetragen.
+2. E-Mail-Adresse bzw. Benutzername und Passwort für beide Postfächer eingeben.
+3. Auf **Prüfen und speichern** klicken.
+
+Ab dann genügt ein Doppelklick: Die App synchronisiert sofort und zeigt am Ende, wie viele Mails übertragen wurden.
+
+## Einstellungsdatei für eine Gruppe
+
+Wer die App an Kolleginnen und Kollegen weitergibt, legt die gemeinsamen Einstellungen in einer Datei ab
+(Vorlage: [`examples/mailsync-profil.json`](examples/mailsync-profil.json)):
+
+```json
+{
+  "name": "Beispielschule",
+  "source": { "host": "imap.alter-anbieter.example.org", "port": 993 },
+  "target": { "host": "imap.neuer-anbieter.example.org", "port": 993 },
+  "target_user": "localpart",
+  "exclude": ["^INBOX\\.Trash$"]
+}
+```
+
+| Feld | Bedeutung |
+|---|---|
+| `source`, `target` | Alter und neuer IMAP-Server (immer verschlüsselt, Port meist 993) |
+| `target_user` | Vorschlag für den neuen Benutzernamen: `localpart` = Teil der alten Adresse vor dem @, `same` = gleich, weglassen = kein Vorschlag |
+| `exclude` | Ordner des alten Postfachs, die nie übertragen werden (reguläre Ausdrücke) |
+
+Die Datei enthält keine Zugangsdaten und wird zusammen mit dem Download weitergegeben, zum Beispiel per Mail.
+
+## Tipps
+
+- Neue Mails am besten zuerst im **alten** Postfach in Ordner einsortieren und dann synchronisieren.
+  Sie landen dann gleich im passenden Ordner im neuen Postfach.
+- Was nach der Übertragung verschoben oder gelöscht wird, gilt nur in dem Postfach, in dem man es tut.
+  Eine im neuen Postfach gelöschte Mail kommt nicht wieder.
+- Ordner, die in der Einstellungsdatei unter `exclude` stehen (z. B. der Papierkorb), werden nicht übertragen.
+- Ein Abbruch mit **Stopp** schadet nicht. Beim nächsten Start geht es einfach weiter.
+
+## Wo die Daten liegen
+
+Alles bleibt auf dem eigenen Computer:
+
+| Was | Wo |
+|---|---|
+| Passwörter | Schlüsselbund (Mac) bzw. Anmeldeinformationsverwaltung (Windows) |
+| Server, Benutzernamen, Liste der übertragenen Mails, Protokolle | Mac: `~/Library/Application Support/Christinas Mail-Sync/`<br>Windows: `%APPDATA%\Christinas Mail-Sync\` |
+
+Die Datei `uebertragen.txt` in diesem Ordner merkt sich, welche Mails schon übertragen wurden.
+Wer sie löscht, bekommt Mails, die im neuen Postfach gelöscht wurden, beim nächsten Mal erneut.
+
+## So funktioniert es
+
+1. Die App liest die Message-IDs aller Mails in beiden Postfächern, nur lesend, und ermittelt die Mails,
+   die noch nie übertragen wurden (`src/mailsync/plan.py`).
+2. [imapsync](https://imapsync.lamiral.info/) kopiert Ordner für Ordner genau diese Mails (`src/mailsync/sync.py`).
+3. Alles, was jetzt im neuen Postfach liegt, wird in `uebertragen.txt` vermerkt.
+
+Die Verbindungen sind verschlüsselt, und die Zertifikate der Server werden geprüft.
+
+## Entwicklung
+
+Voraussetzungen: Python 3.13 mit Tk. Für den Mac-Build zusätzlich die Xcode Command Line Tools und Homebrew mit `openssl@3`.
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+./scripts/build-imapsync-macos.sh          # imapsync -> vendor/imapsync
+.venv/bin/python -m unittest discover -s tests
+PYTHONPATH=src .venv/bin/python -m mailsync  # App aus dem Quelltext starten
+.venv/bin/pyinstaller --noconfirm mailsync.spec   # -> dist/
+```
+
+Die Windows-Version wird automatisch auf GitHub gebaut (`.github/workflows/build.yml`).
+Ein neues Release entsteht mit `git tag v1.x.y && git push --tags`.
+
+## Lizenz
+
+[MIT](LICENSE). Die mitgelieferte Software und ihre Lizenzen stehen in [THIRD_PARTY.md](THIRD_PARTY.md).

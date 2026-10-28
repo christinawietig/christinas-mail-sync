@@ -1,0 +1,39 @@
+# --- Niemals hochladen: Zugangsdaten und persoenliche Maildaten ---
+# Statusdateien (Message-IDs = wer wem wann geschrieben hat)
+uebertragen.txt
+*.state
+# imapsync-Logs enthalten Ordnernamen, Betreffzeilen und Adressen
+LOG_imapsync/
+Logs/
+*.log
+letzter-lauf.txt
+# Passwortdateien und Umgebungsvariablen
+passfile*
+*.pass
+.env
+.env.*
+settings.json
+# Einstellungsdateien mit echten Servern (nur das Beispiel gehoert ins Repository)
+mailsync-profil*.json
+!examples/mailsync-profil.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# --- Build-Ergebnisse ---
+vendor/
+build/
+dist/
+*.zip
+*.dmg
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- System ---
+.DS_Store
+Thumbs.db

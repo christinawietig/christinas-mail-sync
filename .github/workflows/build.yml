@@ -1,0 +1,88 @@
+# Baut die App fuer Windows und macOS (Apple-Chip) und testet sie.
+# Bei einem Versions-Tag (z. B. v1.0.0) entsteht ein GitHub-Release mit beiden Downloads.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: imapsync laden
+        run: ./scripts/fetch-imapsync-windows.ps1
+        shell: pwsh
+      - name: Python-Pakete
+        run: pip install -r requirements.txt
+      - name: Tests
+        run: python -m unittest discover -s tests -v
+      - name: App bauen
+        run: pyinstaller --noconfirm mailsync.spec
+      - name: Selbsttest der fertigen App
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist\Christinas Mail-Sync.exe" -ArgumentList '--selftest', 'selftest.txt', 'imap.gmail.com', 'outlook.office365.com' -Wait -PassThru
+          Get-Content selftest.txt | Select-String -Pattern 'Exiting|SSL|error' | Select-Object -First 20
+          if ($p.ExitCode -ne 0) { Get-Content selftest.txt; exit 1 }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/Christinas Mail-Sync.exe
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: imapsync bauen
+        run: |
+          brew list openssl@3 >/dev/null 2>&1 || brew install openssl@3
+          ./scripts/build-imapsync-macos.sh
+      - name: Python-Pakete
+        run: pip install -r requirements.txt
+      - name: Tests
+        run: python -m unittest discover -s tests -v
+      - name: App bauen
+        run: pyinstaller --noconfirm mailsync.spec
+      - name: Selbsttest der fertigen App
+        run: |
+          APP="dist/Christinas Mail-Sync.app"
+          codesign -v --strict "$APP"
+          "$APP/Contents/MacOS/Christinas Mail-Sync" --selftest selftest.txt imap.gmail.com outlook.office365.com || { cat selftest.txt; exit 1; }
+          grep -E 'Exiting' selftest.txt
+      - name: Zippen
+        run: ditto -c -k --keepParent "dist/Christinas Mail-Sync.app" "Christinas-Mail-Sync-macOS.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: Christinas-Mail-Sync-macOS.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mv "windows/Christinas Mail-Sync.exe" Christinas-Mail-Sync-Windows.exe
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" \
+            --notes "Downloads: Windows (.exe) und macOS für Apple-Chip (.zip). Anleitung siehe README." \
+            Christinas-Mail-Sync-Windows.exe macos/Christinas-Mail-Sync-macOS.zip
