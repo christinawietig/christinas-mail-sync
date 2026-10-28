@@ -7,6 +7,12 @@ Für Windows und Mac, ohne Installation von Zusatzprogrammen.
 - **Nur eine Richtung:** Im alten Postfach wird nichts verändert, im neuen wird nichts gelöscht.
 - **Ordner bleiben erhalten**, ebenso Datum und Gelesen-Markierung.
 
+<p align="center">
+  <img src="docs/screenshots/macos-1-einrichtung.png" width="400" alt="Einrichtung unter macOS">
+  <img src="docs/screenshots/windows-1-einrichtung.png" width="330" alt="Einrichtung unter Windows">
+</p>
+<p align="center"><em>Einrichtung beim ersten Start – links macOS, rechts Windows</em></p>
+
 ## Herunterladen
 
 Unter [Releases](https://github.com/christinawietig/christinas-mail-sync/releases/latest):
@@ -40,10 +46,19 @@ Die App ist nicht bei Apple oder Microsoft registriert. Deshalb warnt der Comput
 
 Ab dann genügt ein Doppelklick: Die App synchronisiert sofort und zeigt am Ende, wie viele Mails übertragen wurden.
 
+<p align="center">
+  <img src="docs/screenshots/macos-2-sync.png" width="400" alt="Sync läuft">
+  <img src="docs/screenshots/windows-3-fertig.png" width="330" alt="Sync fertig">
+</p>
+
 ## Einrichtungscode weitergeben
 
 Wer die App eingerichtet hat, klickt nach einem Sync auf **Für Kollegen …** und dann auf **Kopieren**.
 Den Code zum Beispiel per Mail weiterschicken.
+
+<p align="center">
+  <img src="docs/screenshots/macos-4-code-teilen.png" width="520" alt="Einrichtungscode für Kollegen">
+</p>
 
 - Der Code enthält nur die Server-Einstellungen: Server, Ports, ausgeschlossene Ordner und wie sich
   der neue Benutzername aus der alten Adresse ergibt. **Keine Benutzernamen, keine Passwörter.**
@@ -93,6 +108,7 @@ PYTHONPATH=src .venv/bin/python -m mailsync  # App aus dem Quelltext starten
 ```
 
 Die Windows-Version wird automatisch auf GitHub gebaut (`.github/workflows/build.yml`).
+Die Screenshots erstellt der Workflow „Screenshots“ (`scripts/screenshots.py`, mit Beispieldaten).
 Ein neues Release entsteht mit `git tag v1.x.y && git push --tags`.
 
 ## Lizenz
