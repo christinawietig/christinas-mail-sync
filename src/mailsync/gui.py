@@ -12,6 +12,14 @@ from . import APP_NAME, config, credentials, plan, setupcode
 from .sync import Sync, describe_error
 
 PAD = 20
+# Feste Zeichenbreite fuer den Einrichtungscode
+MONO = ("Menlo", 12) if sys.platform == "darwin" else ("Consolas", 11) if sys.platform == "win32" else ("Courier", 11)
+
+
+def asset(name):
+    """Datei aus assets/ (im App-Paket bzw. im Quelltext)."""
+    base = getattr(sys, "_MEIPASS", os.path.join(os.path.dirname(__file__), "..", ".."))
+    return os.path.join(base, "assets", name)
 
 
 def open_path(path):
@@ -34,6 +42,11 @@ class App:
                 pass
         self.root = tk.Tk()
         self.root.title(APP_NAME)
+        try:
+            self._icon = tk.PhotoImage(file=asset("MailSync-256.png"))
+            self.root.iconphoto(True, self._icon)
+        except tk.TclError:
+            pass
         self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
         self.events = queue.Queue()
@@ -113,7 +126,7 @@ class SetupFrame(ttk.Frame):
         ttk.Label(code, text="Einrichtungscode", font=("", 12, "bold")).pack(anchor="w")
         ttk.Label(code, text="Von einer Kollegin oder einem Kollegen erhalten? Hier einfügen:").pack(anchor="w")
         self.code_text = tk.Text(code, height=3, width=52, wrap="char", relief="solid", borderwidth=1,
-                                 highlightthickness=0, font=("Courier", 12))
+                                 highlightthickness=0, font=MONO)
         self.code_text.pack(fill="x", pady=(4, 2))
         self.code_status = ttk.Label(code, text="", wraplength=420, justify="left")
         self.code_status.pack(anchor="w")
@@ -347,7 +360,7 @@ class ShareDialog(tk.Toplevel):
                           "Der Code enthält nur die Server-Einstellungen – keine Benutzernamen, keine Passwörter.",
                   justify="left").pack(anchor="w", pady=(4, 10))
         text = tk.Text(f, height=3, width=52, wrap="char", relief="solid", borderwidth=1,
-                       highlightthickness=0, font=("Courier", 12))
+                       highlightthickness=0, font=MONO)
         text.insert("1.0", code)
         text.configure(state="disabled")
         text.pack(fill="x")

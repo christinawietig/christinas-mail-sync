@@ -81,6 +81,7 @@ def main():
     os.makedirs(ASSETS, exist_ok=True)
     icon = draw()
     icon.save(os.path.join(ASSETS, "MailSync.png"))
+    icon.resize((256, 256), Image.LANCZOS).save(os.path.join(ASSETS, "MailSync-256.png"))  # Fenstersymbol
     icon.save(os.path.join(ASSETS, "MailSync.ico"), sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
     with tempfile.TemporaryDirectory() as tmp:
         iconset = os.path.join(tmp, "MailSync.iconset")

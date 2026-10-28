@@ -16,7 +16,7 @@ a = Analysis(
     ["src/mailsync/__main__.py"],
     pathex=["src"],
     # Auf dem Mac wird imapsync erst nach dem Bauen hineinkopiert (siehe unten)
-    datas=[(imapsync, "imapsync")] if win else [],
+    datas=([(imapsync, "imapsync")] if win else []) + [("assets/MailSync-256.png", "assets")],
     hiddenimports=["keyring.backends.macOS", "keyring.backends.Windows"],
 )
 pyz = PYZ(a.pure)
