@@ -8,8 +8,8 @@ Für Windows und Mac, ohne Installation von Zusatzprogrammen.
 - **Ordner bleiben erhalten**, ebenso Datum und Gelesen-Markierung.
 
 <p align="center">
-  <img src="docs/screenshots/macos-2-sync.png" width="400" alt="Sync läuft unter macOS">
-  <img src="docs/screenshots/windows-3-fertig.png" width="330" alt="Sync fertig unter Windows">
+  <img src="docs/screenshots/macos-2-sync.png" height="150" alt="Sync läuft unter macOS">
+  <img src="docs/screenshots/windows-3-fertig.png" height="150" alt="Sync fertig unter Windows">
 </p>
 <p align="center"><em>Ein Doppelklick genügt – links macOS während des Syncs, rechts Windows danach</em></p>
 
@@ -36,33 +36,31 @@ Die App ist nicht bei Apple oder Microsoft registriert. Deshalb warnt der Comput
 1. Die Datei doppelklicken. Falls „Der Computer wurde durch Windows geschützt“ erscheint:
    auf **Weitere Informationen** und dann auf **Trotzdem ausführen** klicken.
 
-**Danach** fragt die App einmalig nach den Zugangsdaten:
+**Danach** öffnet die App einmalig die Einstellungen:
 
-1. Den **Einrichtungscode** einfügen, den man von einer Kollegin oder einem Kollegen bekommen hat
-   (beginnt mit `MS1-`). Damit sind die Server eingetragen. Ohne Code trägt man die Server von Hand ein.
-2. E-Mail-Adresse bzw. Benutzername und Passwort für beide Postfächer eingeben.
-   Der neue Benutzername wird nach Möglichkeit schon vorgeschlagen.
+1. Hat man einen **Einrichtungscode** bekommen (beginnt mit `MS1-`): ihn kopieren und in der App auf
+   **Einfügen** klicken. Server und Benutzernamen sind dann eingetragen.
+   Ohne Code füllt man die Felder von Hand aus.
+2. Die beiden **Passwörter** eingeben.
 3. Auf **Prüfen und speichern** klicken.
 
 <p align="center">
-  <img src="docs/screenshots/macos-1-einrichtung.png" width="400" alt="Einrichtung unter macOS">
-  <img src="docs/screenshots/windows-1-einrichtung.png" width="330" alt="Einrichtung unter Windows">
+  <img src="docs/screenshots/macos-1-einstellungen.png" height="420" alt="Einstellungen unter macOS">
+  <img src="docs/screenshots/windows-1-einstellungen.png" height="420" alt="Einstellungen unter Windows">
 </p>
-<p align="center"><em>Einrichtung beim ersten Start – links macOS, rechts Windows</em></p>
+<p align="center"><em>Einstellungen mit eingefügtem Code – links macOS, rechts Windows</em></p>
 
 Ab dann genügt ein Doppelklick: Die App synchronisiert sofort und zeigt am Ende, wie viele Mails übertragen wurden.
 
 ## Einrichtungscode weitergeben
 
-Wer die App eingerichtet hat, klickt nach einem Sync auf **Für Kollegen …** und dann auf **Kopieren**.
-Den Code zum Beispiel per Mail weiterschicken.
+Unten in den Einstellungen steht immer der Einrichtungscode zu den Feldern darüber.
+Er ändert sich bei jeder Eingabe sofort mit. **Kopieren** klicken und den Code zum Beispiel per Mail verschicken.
 
-<p align="center">
-  <img src="docs/screenshots/macos-4-code-teilen.png" width="520" alt="Einrichtungscode für Kollegen">
-</p>
-
-- Der Code enthält nur die Server-Einstellungen: Server, Ports, ausgeschlossene Ordner und wie sich
-  der neue Benutzername aus der alten Adresse ergibt. **Keine Benutzernamen, keine Passwörter.**
+- Der Code enthält Server, Benutzernamen und ausgeschlossene Ordner, **aber nie die Passwörter.**
+- **Kolleginnen und Kollegen einrichten:** In den Einstellungen deren Adresse und Benutzernamen eintragen,
+  **Kopieren** klicken und dann **Abbrechen**. Die eigenen Einstellungen bleiben unverändert.
+  Die Kollegin fügt den Code ein und gibt nur noch ihre Passwörter ein.
 - Leerzeichen, Zeilenumbrüche und Groß-/Kleinschreibung sind egal. Eine Prüfsumme erkennt,
   wenn der Code unvollständig kopiert oder vertippt wurde.
 

@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass, field
 
 import certifi
 
-from . import APP_NAME, setupcode
+from . import APP_NAME
 
 DEFAULT_PORT = 993
 
@@ -106,8 +106,3 @@ def save_settings(settings):
         json.dump(asdict(settings), f, indent=2, ensure_ascii=False)
     os.replace(tmp, path)
 
-
-def apply_code(code, base):
-    """Uebernimmt die Einstellungen aus einem Einrichtungscode in eine Kopie von base.
-    Benutzernamen bleiben unberuehrt. Wirft setupcode.CodeError."""
-    return _from_dict(setupcode.decode(code), Settings(**asdict(base)))

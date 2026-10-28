@@ -65,14 +65,17 @@ class SetupCodeTest(unittest.TestCase):
         self.assertEqual(d["target_user_rule"], "localpart")
         self.assertEqual(d["exclude_folders"], ["INBOX.Trash", "Spam"])
 
-    def test_export_from_settings(self):
-        s = config.Settings(source_host="imap.alt.example.org", source_user="max.muster@alt.example.org",
-                            target_host="imap.neu.example.org", target_user="max.muster",
-                            exclude_folders=["INBOX.Trash"])
-        d = setupcode.decode(setupcode.from_settings(s))
-        self.assertEqual(d["target_user_rule"], "localpart")
-        self.assertNotIn("max.muster", setupcode.from_settings(s))
-        self.assertEqual(d["exclude_folders"], ["INBOX.Trash"])
+    def test_usernames_but_never_passwords(self):
+        code = setupcode.encode(*self.ARGS, source_user="max.muster@alt.example.org", target_user="max.muster")
+        d = setupcode.decode(code)
+        self.assertEqual((d["source_user"], d["target_user"]), ("max.muster@alt.example.org", "max.muster"))
+        self.assertNotIn("password", " ".join(d))
+        self.assertEqual(setupcode.decode(setupcode.encode(*self.ARGS))["source_user"], "")
+
+    def test_derive_rule(self):
+        self.assertEqual(setupcode.derive_rule("max@alt.de", "max"), "localpart")
+        self.assertEqual(setupcode.derive_rule("max@alt.de", "max@alt.de"), "same")
+        self.assertEqual(setupcode.derive_rule("max@alt.de", "m.x"), "")
 
     def test_tolerant_input(self):
         code = setupcode.encode(*self.ARGS)
@@ -93,12 +96,6 @@ class SetupCodeTest(unittest.TestCase):
             setupcode.decode(code[:-3])
         with self.assertRaises(setupcode.CodeError):
             setupcode.decode("hallo")
-
-    def test_apply_code_keeps_users(self):
-        base = config.Settings(source_user="a@b.de", target_user="a")
-        s = config.apply_code(setupcode.encode(*self.ARGS), base)
-        self.assertEqual((s.source_user, s.target_user, s.source_host), ("a@b.de", "a", "imap.alt.example.org"))
-        self.assertEqual(base.source_host, "")
 
 
 if __name__ == "__main__":

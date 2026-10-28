@@ -64,7 +64,8 @@ def main():
     gui.Sync = FakeSync
     app = gui.App()
     root = app.root
-    code = setupcode.from_settings(DEMO)
+    code = setupcode.encode(DEMO.source_host, DEMO.source_port, DEMO.target_host, DEMO.target_port,
+                            DEMO.target_user_rule, DEMO.exclude_folders, DEMO.source_user, DEMO.target_user)
     steps = []
 
     def step(fn):
@@ -73,17 +74,15 @@ def main():
 
     @step
     def setup():
+        # Code von einer Kollegin erhalten und eingefuegt, Passwoerter fehlen noch
         app.settings = config.Settings()
         app.show_setup()
         f = app.frame
-        f.code_text.insert("1.0", code)
-        f._check_code()
-        f.source_user.set(DEMO.source_user)
-        f._suggest_target(None)
+        f.clipboard_clear()
+        f.clipboard_append(code)
+        f._paste()
         f.source_pw.set("x" * 12)
-        f.target_pw.set("x" * 12)
-        f.save_button.focus_set()
-        return "1-einrichtung"
+        return "1-einstellungen"
 
     @step
     def running():
@@ -101,12 +100,6 @@ def main():
         app.frame.on_event("done", {"result": Result(transferred=37)})
         return "3-fertig"
 
-    @step
-    def share():
-        app.dialog = gui.ShareDialog(app)
-        app.dialog._copy(code)
-        return "4-code-teilen"
-
     def run(i=0):
         if i > 0:
             capture(run.window, os.path.join(out, "%s-%s.png" % (PLATFORM, run.name)))
@@ -114,9 +107,9 @@ def main():
             root.destroy()
             return
         run.name = steps[i]()
-        run.window = getattr(app, "dialog", None) or root
-        run.window.lift()
-        run.window.focus_force()
+        run.window = root
+        root.lift()
+        root.focus_force()
         root.after(1200, lambda: run(i + 1))
 
     root.after(300, run)

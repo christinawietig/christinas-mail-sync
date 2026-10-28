@@ -1,12 +1,12 @@
-"""Einrichtungscode: alle gemeinsamen Einstellungen (Server, Ports, ausgeschlossene
-Ordner, Benutzernamen-Regel) in einem kurzen Text zum Einfuegen, z. B. "MS1-8D2KQ-...".
+"""Einrichtungscode: die Einstellungen in einem kurzen Text zum Einfuegen, z. B. "MS1-8D2KQ-...".
+
+Enthalten: Server, Ports, Benutzernamen, ausgeschlossene Ordner, Benutzernamen-Regel.
+Nie enthalten: Passwoerter.
 
 Robust gegen Tipp- und Kopierfehler:
 - Crockford-Base32: Gross-/Kleinschreibung egal, O wird als 0 und I/L als 1 gelesen.
 - Leerzeichen, Bindestriche und Zeilenumbrueche werden ueberall ignoriert.
 - CRC-32-Pruefsumme: vertippte oder abgeschnittene Codes werden erkannt.
-
-Der Code enthaelt keine Benutzernamen und keine Passwoerter.
 """
 import re
 import zlib
@@ -43,11 +43,13 @@ def _b32decode(text):
     return bytes(int(bits[i:i + 8], 2) for i in range(0, len(bits), 8))
 
 
-def encode(source_host, source_port, target_host, target_port, target_user_rule, exclude_folders):
-    """exclude_folders: Ordnernamen des alten Postfachs, die nie uebertragen werden."""
+def encode(source_host, source_port, target_host, target_port, target_user_rule, exclude_folders,
+           source_user="", target_user=""):
+    """exclude_folders: Ordnernamen des alten Postfachs, die nie uebertragen werden.
+    Benutzernamen sind optional (leer = nicht im Code)."""
     fields = [source_host, "" if source_port == DEFAULT_PORT else str(source_port),
               target_host, "" if target_port == DEFAULT_PORT else str(target_port),
-              _RULES[target_user_rule]] + list(exclude_folders)
+              _RULES[target_user_rule], source_user, target_user] + list(exclude_folders)
     if any("\n" in f for f in fields):
         raise ValueError("Zeilenumbrueche sind in den Feldern nicht erlaubt")
     raw = "\n".join(fields).encode("utf-8")
@@ -58,16 +60,14 @@ def encode(source_host, source_port, target_host, target_port, target_user_rule,
     return "-".join([PREFIX] + [text[i:i + 5] for i in range(0, len(text), 5)])
 
 
-def from_settings(s):
-    """Code aus den eigenen Einstellungen. Fehlt die Benutzernamen-Regel (Server von
-    Hand eingetragen), wird sie aus den eigenen Benutzernamen abgeleitet."""
-    rule = s.target_user_rule
-    if not rule and s.source_user and s.target_user:
-        if s.target_user == s.source_user:
-            rule = "same"
-        elif s.target_user == s.source_user.split("@", 1)[0]:
-            rule = "localpart"
-    return encode(s.source_host, s.source_port, s.target_host, s.target_port, rule, s.exclude_folders)
+def derive_rule(source_user, target_user):
+    """Benutzernamen-Regel aus einem Beispiel ableiten (fuer Codes ohne Regel)."""
+    if source_user and target_user:
+        if target_user == source_user:
+            return "same"
+        if target_user == source_user.split("@", 1)[0]:
+            return "localpart"
+    return ""
 
 
 def normalize(code):
@@ -75,7 +75,7 @@ def normalize(code):
 
 
 def decode(code):
-    """Liefert ein dict mit den Feldern von config.Settings (ohne Benutzernamen)."""
+    """Liefert ein dict mit den Feldern von config.Settings. Fehlende Benutzernamen sind leer."""
     text = normalize(code)
     if not text:
         raise CodeError("Bitte den Einrichtungscode einfügen.")
@@ -88,7 +88,7 @@ def decode(code):
     try:
         raw = zlib.decompress(payload, -15) if flag == 1 else payload
         fields = raw.decode("utf-8").split("\n")
-        src, src_port, dst, dst_port, rule = fields[:5]
+        src, src_port, dst, dst_port, rule, src_user, dst_user = fields[:7]
         rules = {v: k for k, v in _RULES.items()}
         if not src or not dst:
             raise ValueError()
@@ -98,7 +98,9 @@ def decode(code):
             "target_host": dst,
             "target_port": int(dst_port or DEFAULT_PORT),
             "target_user_rule": rules[rule],
-            "exclude_folders": fields[5:],
+            "exclude_folders": fields[7:],
+            "source_user": src_user,
+            "target_user": dst_user,
         }
     except (zlib.error, UnicodeDecodeError, ValueError, KeyError):
         raise CodeError("Dieser Code stammt von einer anderen Version und ist hier nicht lesbar.")
