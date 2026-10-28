@@ -202,7 +202,9 @@ class SetupFrame(ttk.Frame):
         code = self._code()
         self.code_text.configure(state="normal")
         self.code_text.delete("1.0", "end")
-        self.code_text.insert("1.0", code)
+        # Zeilen nur zwischen ganzen Fuenfergruppen umbrechen
+        groups = code.split("-")
+        self.code_text.insert("1.0", "-\n".join("-".join(groups[i:i + 8]) for i in range(0, len(groups), 8)))
         self.code_text.configure(state="disabled")
         self.copy_button.configure(text="Kopieren")
         self.copy_button.state(["!disabled"] if code else ["disabled"])
