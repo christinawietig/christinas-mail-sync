@@ -1,0 +1,31 @@
+# Erstellt die README-Screenshots fuer Windows und macOS (von Hand starten).
+# Die Bilder liegen danach als Artefakt "screenshots-*" am Lauf.
+name: Screenshots
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Python-Pakete
+        run: pip install -r requirements.txt pillow ${{ runner.os == 'macOS' && 'pyobjc-framework-Quartz' || '' }}
+      - name: Screenshots
+        run: python scripts/screenshots.py docs/screenshots
+        env:
+          PYTHONPATH: src
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ runner.os }}
+          path: docs/screenshots/*.png
