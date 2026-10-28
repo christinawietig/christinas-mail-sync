@@ -18,8 +18,6 @@ import threading
 import time
 from dataclasses import dataclass
 
-import certifi
-
 from . import config, plan
 
 TRANSFERRED_RE = re.compile(r"^Messages transferred\s*:\s*(\d+)")
@@ -38,7 +36,7 @@ class Result:
 
 def ssl_args():
     """Serverzertifikate pruefen (imapsync tut das von sich aus nicht)."""
-    ca = certifi.where()
+    ca = config.ca_file()
     return ["--sslargs1", "SSL_verify_mode=1", "--sslargs1", "SSL_ca_file=" + ca,
             "--sslargs2", "SSL_verify_mode=1", "--sslargs2", "SSL_ca_file=" + ca]
 
@@ -201,6 +199,7 @@ class Sync:
         # --automap        Spezialordner (Gesendet, Entwuerfe, Spam, Archiv) zuordnen
         # --subscribeall   Zielordner abonnieren, damit Mailprogramme sie anzeigen
         # --noresyncflags  Flags nur beim Kopieren setzen, spaeter nie ueberschreiben
+        # --addheader      Mails ohne Message-ID auch kopieren (sonst uebergeht imapsync sie)
         # ssl_args()       Serverzertifikate pruefen
         # --folder/--search1  nur dieser Ordner, nur diese UIDs (aus plan.py)
         # Bewusst NICHT gesetzt: --delete1, --delete2, --delete2folders, --expunge1.
@@ -210,7 +209,7 @@ class Sync:
             exe,
             "--host1", host1, "--port1", str(port1), "--ssl1", "--user1", user1, "--passfile1", pass1,
             "--host2", host2, "--port2", str(port2), "--ssl2", "--user2", user2, "--passfile2", pass2,
-            "--automap", "--subscribeall", "--noresyncflags", *ssl_args(),
+            "--automap", "--subscribeall", "--noresyncflags", "--addheader", *ssl_args(),
             "--tmpdir", tmp, "--logdir", config.log_dir(), "--noreleasecheck",
             "--folder", folder, "--search1", "UID " + uids,
         ]

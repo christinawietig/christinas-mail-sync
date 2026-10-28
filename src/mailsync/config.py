@@ -10,13 +10,20 @@ import os
 import sys
 from dataclasses import asdict, dataclass, field
 
+import certifi
+
 from . import APP_NAME, setupcode
 
 DEFAULT_PORT = 993
 
 
 def data_dir():
-    """Ordner fuer Einstellungen, Statusdatei und Logs (wird angelegt)."""
+    """Ordner fuer Einstellungen, Statusdatei und Logs (wird angelegt).
+    MAILSYNC_DATA_DIR ersetzt ihn (fuer den automatischen Test)."""
+    if os.environ.get("MAILSYNC_DATA_DIR"):
+        path = os.environ["MAILSYNC_DATA_DIR"]
+        os.makedirs(path, exist_ok=True)
+        return path
     if sys.platform == "win32":
         base = os.environ.get("APPDATA") or os.path.expanduser("~")
     elif sys.platform == "darwin":
@@ -28,6 +35,12 @@ def data_dir():
     if sys.platform != "win32":
         os.chmod(path, 0o700)  # nur fuer den eigenen Benutzer lesbar
     return path
+
+
+def ca_file():
+    """Zertifikate, denen bei der Pruefung der Server vertraut wird.
+    MAILSYNC_CA_FILE ersetzt sie (fuer den Test-Mailserver im automatischen Test)."""
+    return os.environ.get("MAILSYNC_CA_FILE") or certifi.where()
 
 
 def state_file():

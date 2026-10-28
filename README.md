@@ -8,10 +8,10 @@ Für Windows und Mac, ohne Installation von Zusatzprogrammen.
 - **Ordner bleiben erhalten**, ebenso Datum und Gelesen-Markierung.
 
 <p align="center">
-  <img src="docs/screenshots/macos-1-einrichtung.png" width="400" alt="Einrichtung unter macOS">
-  <img src="docs/screenshots/windows-1-einrichtung.png" width="330" alt="Einrichtung unter Windows">
+  <img src="docs/screenshots/macos-2-sync.png" width="400" alt="Sync läuft unter macOS">
+  <img src="docs/screenshots/windows-3-fertig.png" width="330" alt="Sync fertig unter Windows">
 </p>
-<p align="center"><em>Einrichtung beim ersten Start – links macOS, rechts Windows</em></p>
+<p align="center"><em>Ein Doppelklick genügt – links macOS während des Syncs, rechts Windows danach</em></p>
 
 ## Herunterladen
 
@@ -44,12 +44,13 @@ Die App ist nicht bei Apple oder Microsoft registriert. Deshalb warnt der Comput
    Der neue Benutzername wird nach Möglichkeit schon vorgeschlagen.
 3. Auf **Prüfen und speichern** klicken.
 
-Ab dann genügt ein Doppelklick: Die App synchronisiert sofort und zeigt am Ende, wie viele Mails übertragen wurden.
-
 <p align="center">
-  <img src="docs/screenshots/macos-2-sync.png" width="400" alt="Sync läuft">
-  <img src="docs/screenshots/windows-3-fertig.png" width="330" alt="Sync fertig">
+  <img src="docs/screenshots/macos-1-einrichtung.png" width="400" alt="Einrichtung unter macOS">
+  <img src="docs/screenshots/windows-1-einrichtung.png" width="330" alt="Einrichtung unter Windows">
 </p>
+<p align="center"><em>Einrichtung beim ersten Start – links macOS, rechts Windows</em></p>
+
+Ab dann genügt ein Doppelklick: Die App synchronisiert sofort und zeigt am Ende, wie viele Mails übertragen wurden.
 
 ## Einrichtungscode weitergeben
 
@@ -103,11 +104,16 @@ Voraussetzungen: Python 3.13 mit Tk. Für den Mac-Build zusätzlich die Xcode Co
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ./scripts/build-imapsync-macos.sh          # imapsync -> vendor/imapsync
 .venv/bin/python -m unittest discover -s tests
+PYTHONPATH=src .venv/bin/python tests/e2e.py -- .venv/bin/python -m mailsync   # braucht Java und "cryptography"
 PYTHONPATH=src .venv/bin/python -m mailsync  # App aus dem Quelltext starten
 .venv/bin/pyinstaller --noconfirm mailsync.spec   # -> dist/
 ```
 
 Die Windows-Version wird automatisch auf GitHub gebaut (`.github/workflows/build.yml`).
+Dabei synchronisiert die fertige App für Windows und Mac jedes Mal zwei Postfächer auf einem
+Test-Mailserver ([GreenMail](https://greenmail-mail-test.github.io/greenmail/), `tests/e2e.py`):
+genau einmal übertragen, Ordner, Datum und Gelesen erhalten, Papierkorb ausgelassen,
+im Ziel gelöschte Mails kommen nicht wieder.
 Die Screenshots erstellt der Workflow „Screenshots“ (`scripts/screenshots.py`, mit Beispieldaten).
 Ein neues Release entsteht mit `git tag v1.x.y && git push --tags`.
 

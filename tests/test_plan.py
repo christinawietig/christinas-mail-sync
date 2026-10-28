@@ -22,6 +22,11 @@ class PlanTest(unittest.TestCase):
         self.assertTrue(plan.mail_key(h).startswith("nomid:"))
         self.assertEqual(plan.mail_key(h), plan.mail_key(h))
 
+    def test_mail_key_ignores_imapsync_substitute_id(self):
+        # Die Kopie (mit Ersatz-ID von imapsync --addheader) passt zum Original
+        h = "Date: Mon, 1 Jan 2024\nFrom: a@b.de\nSubject: x\n"
+        self.assertEqual(plan.mail_key("Message-Id: <17@imapsync>\n" + h), plan.mail_key(h))
+
     def test_quote(self):
         self.assertEqual(plan.quote('a "b" \\c'), '"a \\"b\\" \\\\c"')
 

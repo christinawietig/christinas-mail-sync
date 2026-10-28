@@ -13,7 +13,7 @@ import os
 import re
 import ssl
 
-import certifi
+from . import config
 
 FETCH_ITEMS = "(UID BODY.PEEK[HEADER.FIELDS (MESSAGE-ID DATE FROM SUBJECT)])"
 LIST_RE = re.compile(rb'\((?P<flags>[^)]*)\) (?P<sep>"[^"]*"|NIL) (?P<name>.+)$')
@@ -28,7 +28,7 @@ class Stopped(Exception):
 
 
 def connect(host, port, user, password):
-    m = imaplib.IMAP4_SSL(host, port, ssl_context=ssl.create_default_context(cafile=certifi.where()), timeout=60)
+    m = imaplib.IMAP4_SSL(host, port, ssl_context=ssl.create_default_context(cafile=config.ca_file()), timeout=60)
     m.login(user, password)
     return m
 
@@ -80,7 +80,9 @@ def field(headers, name):
 
 def mail_key(headers):
     mid = re.search(r"<[^<>\s]+>", field(headers, "Message-ID"))
-    if mid:
+    # "<UID@imapsync>" hat imapsync (--addheader) einer Mail ohne Message-ID im Ziel
+    # gegeben. Sie zaehlt nicht, sonst passte die Kopie nicht mehr zum Original.
+    if mid and not re.fullmatch(r"<\d+@imapsync>", mid.group(0)):
         return mid.group(0)
     raw = "|".join(field(headers, n) for n in ("Date", "From", "Subject"))
     return "nomid:" + hashlib.sha1(raw.encode("utf-8")).hexdigest()
