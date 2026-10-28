@@ -1,7 +1,0 @@
-{
-  "name": "Beispielschule",
-  "source": { "host": "imap.alter-anbieter.example.org", "port": 993 },
-  "target": { "host": "imap.neuer-anbieter.example.org", "port": 993 },
-  "target_user": "localpart",
-  "exclude": ["^INBOX\\.Trash$"]
-}

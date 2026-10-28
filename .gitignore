@@ -13,9 +13,8 @@ passfile*
 .env
 .env.*
 settings.json
-# Einstellungsdateien mit echten Servern (nur das Beispiel gehoert ins Repository)
-mailsync-profil*.json
-!examples/mailsync-profil.json
+# Einrichtungscodes mit echten Servern
+einrichtungscode*.txt
 *.pem
 *.key
 *.p12

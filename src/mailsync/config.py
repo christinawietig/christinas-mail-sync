@@ -1,8 +1,8 @@
 """Einstellungen und Speicherorte.
 
-Im Programm stehen keine Servernamen. Sie kommen aus einer Einstellungsdatei
-(siehe examples/mailsync-profil.json), die man beim ersten Start laedt, oder
-werden von Hand eingetragen. Gespeichert wird alles in settings.json im
+Im Programm stehen keine Servernamen. Sie kommen aus einem Einrichtungscode
+(siehe setupcode.py), den man beim ersten Start einfuegt, oder werden von Hand
+eingetragen. Gespeichert wird alles in settings.json im
 Datenordner, die Passwoerter getrennt im Schluesselbund (siehe credentials.py).
 """
 import json
@@ -10,7 +10,7 @@ import os
 import sys
 from dataclasses import asdict, dataclass, field
 
-from . import APP_NAME
+from . import APP_NAME, setupcode
 
 DEFAULT_PORT = 993
 
@@ -49,11 +49,10 @@ class Settings:
     target_host: str = ""
     target_port: int = DEFAULT_PORT
     target_user: str = ""
-    # Quellordner, die nie uebertragen werden (regulaere Ausdruecke)
-    exclude: list = field(default_factory=list)
+    # Ordner des alten Postfachs, die nie uebertragen werden (genaue Namen)
+    exclude_folders: list = field(default_factory=list)
     # "localpart": neuer Benutzername = Teil der alten Adresse vor dem @, "same": gleich
     target_user_rule: str = ""
-    profile_name: str = ""
 
     @property
     def complete(self):
@@ -95,28 +94,7 @@ def save_settings(settings):
     os.replace(tmp, path)
 
 
-class ProfileError(Exception):
-    pass
-
-
-def load_profile(path, base):
-    """Liest eine Einstellungsdatei und uebernimmt Server, Ports, Ausschluesse und
-    Benutzernamen-Regel in eine Kopie von base. Benutzernamen bleiben unberuehrt."""
-    try:
-        with open(path, encoding="utf-8") as f:
-            raw = json.load(f)
-        src, dst = raw["source"], raw["target"]
-        profile = {
-            "profile_name": str(raw.get("name", "")),
-            "source_host": str(src["host"]).strip(),
-            "source_port": int(src.get("port", DEFAULT_PORT)),
-            "target_host": str(dst["host"]).strip(),
-            "target_port": int(dst.get("port", DEFAULT_PORT)),
-            "exclude": [str(e) for e in raw.get("exclude", [])],
-            "target_user_rule": str(raw.get("target_user", "")),
-        }
-    except (OSError, ValueError, KeyError, TypeError, AttributeError) as e:
-        raise ProfileError("Die Einstellungsdatei ist nicht lesbar (%s)." % e)
-    if not profile["source_host"] or not profile["target_host"]:
-        raise ProfileError("In der Einstellungsdatei fehlen die Servernamen.")
-    return _from_dict(profile, Settings(**asdict(base)))
+def apply_code(code, base):
+    """Uebernimmt die Einstellungen aus einem Einrichtungscode in eine Kopie von base.
+    Benutzernamen bleiben unberuehrt. Wirft setupcode.CodeError."""
+    return _from_dict(setupcode.decode(code), Settings(**asdict(base)))

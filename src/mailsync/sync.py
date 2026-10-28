@@ -115,7 +115,7 @@ class Sync:
     def __init__(self, settings, source_password, target_password, on_event):
         self.source = (settings.source_host, settings.source_port, settings.source_user, source_password)
         self.target = (settings.target_host, settings.target_port, settings.target_user, target_password)
-        self.exclude = settings.exclude
+        self.exclude = ["^%s$" % re.escape(f) for f in settings.exclude_folders]
         self.on_event = on_event
         self._stop = threading.Event()
         self._proc = None

@@ -30,37 +30,25 @@ Die App ist nicht bei Apple oder Microsoft registriert. Deshalb warnt der Comput
 1. Die Datei doppelklicken. Falls „Der Computer wurde durch Windows geschützt“ erscheint:
    auf **Weitere Informationen** und dann auf **Trotzdem ausführen** klicken.
 
-**Danach** fragt die App einmalig nach den Zugangsdaten für beide Postfächer und prüft sie:
+**Danach** fragt die App einmalig nach den Zugangsdaten:
 
-1. Wer eine **Einstellungsdatei** bekommen hat (`mailsync-profil.json`), klickt auf
-   **Einstellungsdatei laden …** und wählt sie aus. Damit sind die Server eingetragen.
+1. Den **Einrichtungscode** einfügen, den man von einer Kollegin oder einem Kollegen bekommen hat
+   (beginnt mit `MS1-`). Damit sind die Server eingetragen. Ohne Code trägt man die Server von Hand ein.
 2. E-Mail-Adresse bzw. Benutzername und Passwort für beide Postfächer eingeben.
+   Der neue Benutzername wird nach Möglichkeit schon vorgeschlagen.
 3. Auf **Prüfen und speichern** klicken.
 
 Ab dann genügt ein Doppelklick: Die App synchronisiert sofort und zeigt am Ende, wie viele Mails übertragen wurden.
 
-## Einstellungsdatei für eine Gruppe
+## Einrichtungscode weitergeben
 
-Wer die App an Kolleginnen und Kollegen weitergibt, legt die gemeinsamen Einstellungen in einer Datei ab
-(Vorlage: [`examples/mailsync-profil.json`](examples/mailsync-profil.json)):
+Wer die App eingerichtet hat, klickt nach einem Sync auf **Für Kollegen …** und dann auf **Kopieren**.
+Den Code zum Beispiel per Mail weiterschicken.
 
-```json
-{
-  "name": "Beispielschule",
-  "source": { "host": "imap.alter-anbieter.example.org", "port": 993 },
-  "target": { "host": "imap.neuer-anbieter.example.org", "port": 993 },
-  "target_user": "localpart",
-  "exclude": ["^INBOX\\.Trash$"]
-}
-```
-
-| Feld | Bedeutung |
-|---|---|
-| `source`, `target` | Alter und neuer IMAP-Server (immer verschlüsselt, Port meist 993) |
-| `target_user` | Vorschlag für den neuen Benutzernamen: `localpart` = Teil der alten Adresse vor dem @, `same` = gleich, weglassen = kein Vorschlag |
-| `exclude` | Ordner des alten Postfachs, die nie übertragen werden (reguläre Ausdrücke) |
-
-Die Datei enthält keine Zugangsdaten und wird zusammen mit dem Download weitergegeben, zum Beispiel per Mail.
+- Der Code enthält nur die Server-Einstellungen: Server, Ports, ausgeschlossene Ordner und wie sich
+  der neue Benutzername aus der alten Adresse ergibt. **Keine Benutzernamen, keine Passwörter.**
+- Leerzeichen, Zeilenumbrüche und Groß-/Kleinschreibung sind egal. Eine Prüfsumme erkennt,
+  wenn der Code unvollständig kopiert oder vertippt wurde.
 
 ## Tipps
 
@@ -68,7 +56,7 @@ Die Datei enthält keine Zugangsdaten und wird zusammen mit dem Download weiterg
   Sie landen dann gleich im passenden Ordner im neuen Postfach.
 - Was nach der Übertragung verschoben oder gelöscht wird, gilt nur in dem Postfach, in dem man es tut.
   Eine im neuen Postfach gelöschte Mail kommt nicht wieder.
-- Ordner, die in der Einstellungsdatei unter `exclude` stehen (z. B. der Papierkorb), werden nicht übertragen.
+- Ausgeschlossene Ordner (z. B. der Papierkorb) werden nicht übertragen. Sie kommen mit dem Einrichtungscode.
 - Ein Abbruch mit **Stopp** schadet nicht. Beim nächsten Start geht es einfach weiter.
 
 ## Wo die Daten liegen

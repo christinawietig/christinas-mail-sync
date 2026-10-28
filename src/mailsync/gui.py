@@ -6,9 +6,9 @@ import sys
 import threading
 import tkinter as tk
 from dataclasses import asdict
-from tkinter import filedialog, ttk
+from tkinter import ttk
 
-from . import APP_NAME, config, credentials, plan
+from . import APP_NAME, config, credentials, plan, setupcode
 from .sync import Sync, describe_error
 
 PAD = 20
@@ -108,12 +108,18 @@ class SetupFrame(ttk.Frame):
                              "Die Passwörter werden sicher im Schlüsselbund dieses Computers gespeichert.",
                   justify="left").grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 10))
 
-        profile = ttk.Frame(self)
-        profile.grid(row=2, column=0, columnspan=2, sticky="w")
-        ttk.Button(profile, text="Einstellungsdatei laden …", command=self._load_profile).pack(side="left")
-        self.profile_label = ttk.Label(profile, text="")
-        self.profile_label.pack(side="left", padx=(10, 0))
-        self._show_profile()
+        code = ttk.Frame(self)
+        code.grid(row=2, column=0, columnspan=2, sticky="we")
+        ttk.Label(code, text="Einrichtungscode", font=("", 12, "bold")).pack(anchor="w")
+        ttk.Label(code, text="Von einer Kollegin oder einem Kollegen erhalten? Hier einfügen:").pack(anchor="w")
+        self.code_text = tk.Text(code, height=3, width=52, wrap="char", relief="solid", borderwidth=1,
+                                 highlightthickness=0, font=("Courier", 12))
+        self.code_text.pack(fill="x", pady=(4, 2))
+        self.code_status = ttk.Label(code, text="", wraplength=420, justify="left")
+        self.code_status.pack(anchor="w")
+        for seq in ("<KeyRelease>", "<<Paste>>", "<<Cut>>"):
+            self.code_text.bind(seq, lambda e: self.after(10, self._check_code))
+        self._check_code()
 
         self.source_host = tk.StringVar(value=s.source_host)
         self.source_user = tk.StringVar(value=s.source_user)
@@ -137,8 +143,11 @@ class SetupFrame(ttk.Frame):
             ttk.Button(buttons, text="Abbrechen", command=self._cancel).pack(side="left", padx=(0, 8))
         self.save_button = ttk.Button(buttons, text="Prüfen und speichern", command=self._save, default="active")
         self.save_button.pack(side="left")
-        app.root.bind("<Return>", lambda e: self._save())
-        self._focus_first_empty()
+        app.root.bind("<Return>", lambda e: None if e.widget is self.code_text else self._save())
+        if s.source_host:
+            self._focus_first_empty()
+        else:
+            self.code_text.focus_set()
 
     def _section(self, row, title, host_var, user_label, user_var, pw_var):
         ttk.Label(self, text=title, font=("", 12, "bold")).grid(row=row, column=0, columnspan=2, sticky="w", pady=(10, 4))
@@ -160,27 +169,21 @@ class SetupFrame(ttk.Frame):
                 entry.focus_set()
                 return
 
-    def _show_profile(self):
-        name = self.draft.profile_name
-        self.profile_label.configure(text=("Geladen: " + name) if name else "")
-
-    def _load_profile(self):
-        path = filedialog.askopenfilename(
-            parent=self.app.root, title="Einstellungsdatei auswählen",
-            filetypes=[("Einstellungsdatei", "*.json"), ("Alle Dateien", "*")])
-        if not path:
+    def _check_code(self):
+        code = self.code_text.get("1.0", "end")
+        if not setupcode.normalize(code):
+            self.code_status.configure(text="Ohne Code: die Server unten von Hand eintragen.", foreground="")
             return
         try:
-            self.draft = config.load_profile(path, self.draft)
-        except config.ProfileError as e:
-            self.message.configure(text=str(e), foreground="#b00020")
+            self.draft = config.apply_code(code, self.draft)
+        except setupcode.CodeError as e:
+            self.code_status.configure(text=str(e), foreground="#b00020")
             return
+        self.code_status.configure(text="✓ Code in Ordnung: %s → %s"
+                                        % (self.draft.source_host, self.draft.target_host), foreground="#1b7f3b")
         self.source_host.set(self.draft.source_host)
         self.target_host.set(self.draft.target_host)
-        self.message.configure(text="")
-        self._show_profile()
         self._suggest_target(None)
-        self._focus_first_empty()
 
     def _suggest_target(self, _event):
         if not self.target_user.get().strip():
@@ -262,6 +265,7 @@ class SyncFrame(ttk.Frame):
         buttons.pack(fill="x", pady=(14, 0))
         self.setup_button = ttk.Button(buttons, text="Zugangsdaten ändern", command=app.show_setup)
         self.log_button = ttk.Button(buttons, text="Protokoll öffnen", command=self._open_log)
+        self.share_button = ttk.Button(buttons, text="Für Kollegen …", command=lambda: ShareDialog(app))
         self.main_button = ttk.Button(buttons, text="Stopp", command=self._main)
         self.main_button.pack(side="right")
 
@@ -319,10 +323,47 @@ class SyncFrame(ttk.Frame):
         self.main_button.state(["!disabled"])
         self.app.sync = None
         self.setup_button.pack(side="left")
+        self.share_button.pack(side="left", padx=(8, 0))
         if not ok:
             self.log_button.pack(side="left", padx=(8, 0))
         self.app.root.bell()
         self.app.root.lift()
+
+
+class ShareDialog(tk.Toplevel):
+    """Zeigt die eigenen Server-Einstellungen als Einrichtungscode zum Weitergeben."""
+
+    def __init__(self, app):
+        super().__init__(app.root)
+        self.title("Einrichtungscode für Kollegen")
+        self.resizable(False, False)
+        self.transient(app.root)
+        code = setupcode.from_settings(app.settings)
+        f = ttk.Frame(self, padding=PAD)
+        f.pack(fill="both", expand=True)
+        ttk.Label(f, text="Einrichtungscode", font=("", 15, "bold")).pack(anchor="w")
+        ttk.Label(f, text="Diesen Code an Kolleginnen und Kollegen schicken. Sie fügen ihn beim ersten Start\n"
+                          "der App ein und müssen dann nur noch Benutzername und Passwort eingeben.\n"
+                          "Der Code enthält nur die Server-Einstellungen – keine Benutzernamen, keine Passwörter.",
+                  justify="left").pack(anchor="w", pady=(4, 10))
+        text = tk.Text(f, height=3, width=52, wrap="char", relief="solid", borderwidth=1,
+                       highlightthickness=0, font=("Courier", 12))
+        text.insert("1.0", code)
+        text.configure(state="disabled")
+        text.pack(fill="x")
+        buttons = ttk.Frame(f)
+        buttons.pack(fill="x", pady=(12, 0))
+        self.copied = ttk.Label(buttons, text="", foreground="#1b7f3b")
+        self.copied.pack(side="left")
+        ttk.Button(buttons, text="Schließen", command=self.destroy).pack(side="right")
+        ttk.Button(buttons, text="Kopieren", default="active",
+                   command=lambda: self._copy(code)).pack(side="right", padx=(0, 8))
+        self.grab_set()
+
+    def _copy(self, code):
+        self.clipboard_clear()
+        self.clipboard_append(code)
+        self.copied.configure(text="✓ Kopiert")
 
 
 def main():

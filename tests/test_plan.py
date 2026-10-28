@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from mailsync import config, plan, sync  # noqa: E402
+from mailsync import config, plan, setupcode, sync  # noqa: E402
 
 
 class PlanTest(unittest.TestCase):
@@ -50,24 +50,50 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(config.Settings().suggest_target_user("c.muster@schule.de"), "")
 
 
-class ProfileTest(unittest.TestCase):
-    def test_example_profile(self):
-        path = os.path.join(os.path.dirname(__file__), "..", "examples", "mailsync-profil.json")
-        base = config.Settings(source_user="a@b.de", target_user="a")
-        s = config.load_profile(path, base)
-        self.assertEqual(s.source_host, "imap.alter-anbieter.example.org")
-        self.assertEqual(s.target_port, 993)
-        self.assertEqual(s.exclude, [r"^INBOX\.Trash$"])
-        self.assertEqual((s.source_user, s.target_user), ("a@b.de", "a"))
-        self.assertEqual(base.source_host, "")  # Original unveraendert
+class SetupCodeTest(unittest.TestCase):
+    ARGS = ("imap.alt.example.org", 993, "imap.neu.example.org", 143, "localpart", ["INBOX.Trash", "Spam"])
 
-    def test_broken_profile(self):
-        with tempfile.TemporaryDirectory() as d:
-            p = os.path.join(d, "x.json")
-            with open(p, "w") as f:
-                f.write('{"source": {}}')
-            with self.assertRaises(config.ProfileError):
-                config.load_profile(p, config.Settings())
+    def test_roundtrip(self):
+        d = setupcode.decode(setupcode.encode(*self.ARGS))
+        self.assertEqual((d["source_host"], d["source_port"]), ("imap.alt.example.org", 993))
+        self.assertEqual((d["target_host"], d["target_port"]), ("imap.neu.example.org", 143))
+        self.assertEqual(d["target_user_rule"], "localpart")
+        self.assertEqual(d["exclude_folders"], ["INBOX.Trash", "Spam"])
+
+    def test_export_from_settings(self):
+        s = config.Settings(source_host="imap.alt.example.org", source_user="max.muster@alt.example.org",
+                            target_host="imap.neu.example.org", target_user="max.muster",
+                            exclude_folders=["INBOX.Trash"])
+        d = setupcode.decode(setupcode.from_settings(s))
+        self.assertEqual(d["target_user_rule"], "localpart")
+        self.assertNotIn("max.muster", setupcode.from_settings(s))
+        self.assertEqual(d["exclude_folders"], ["INBOX.Trash"])
+
+    def test_tolerant_input(self):
+        code = setupcode.encode(*self.ARGS)
+        messy = "  \n " + code.lower().replace("-", " - \n").replace("0", "o") + "\t  "
+        self.assertEqual(setupcode.decode(messy), setupcode.decode(code))
+
+    def test_detects_typos_and_truncation(self):
+        code = setupcode.encode(*self.ARGS)
+        body = code[4:]
+        for i in range(len(body)):
+            c = body[i]
+            if c == "-":
+                continue
+            wrong = "X" if c != "X" else "Y"
+            with self.assertRaises(setupcode.CodeError):
+                setupcode.decode(code[:4] + body[:i] + wrong + body[i + 1:])
+        with self.assertRaises(setupcode.CodeError):
+            setupcode.decode(code[:-3])
+        with self.assertRaises(setupcode.CodeError):
+            setupcode.decode("hallo")
+
+    def test_apply_code_keeps_users(self):
+        base = config.Settings(source_user="a@b.de", target_user="a")
+        s = config.apply_code(setupcode.encode(*self.ARGS), base)
+        self.assertEqual((s.source_user, s.target_user, s.source_host), ("a@b.de", "a", "imap.alt.example.org"))
+        self.assertEqual(base.source_host, "")
 
 
 if __name__ == "__main__":
