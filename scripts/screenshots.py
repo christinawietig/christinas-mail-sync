@@ -44,7 +44,7 @@ def capture(win, path):
         ids = [d["kCGWindowNumber"] for d in windows
                if d["kCGWindowOwnerPID"] == os.getpid() and d.get("kCGWindowIsOnscreen")
                and abs(d["kCGWindowBounds"]["X"] - x) <= 2 and abs(d["kCGWindowBounds"]["Width"] - w) <= 2]
-        subprocess.run(["screencapture", "-x", "-l", str(ids[0]), path], check=True)
+        subprocess.run(["screencapture", "-x", "-o", "-l", str(ids[0]), path], check=True)
     else:
         import ctypes
         from ctypes import wintypes
