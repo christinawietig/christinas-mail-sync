@@ -82,39 +82,20 @@ Alles bleibt auf dem eigenen Computer:
 | Passwörter | Schlüsselbund (Mac) bzw. Anmeldeinformationsverwaltung (Windows) |
 | Server, Benutzernamen, Liste der übertragenen Mails, Protokolle | Mac: `~/Library/Application Support/Christinas Mail-Sync/`<br>Windows: `%APPDATA%\Christinas Mail-Sync\` |
 
-Die Datei `uebertragen.txt` in diesem Ordner merkt sich, welche Mails schon übertragen wurden.
-Wer sie löscht, bekommt Mails, die im neuen Postfach gelöscht wurden, beim nächsten Mal erneut.
-
 ## So funktioniert es
 
-1. Die App liest die Message-IDs aller Mails in beiden Postfächern, nur lesend, und ermittelt die Mails,
-   die noch nie übertragen wurden (`src/mailsync/plan.py`).
-2. [imapsync](https://imapsync.lamiral.info/) kopiert Ordner für Ordner genau diese Mails (`src/mailsync/sync.py`).
-3. Alles, was jetzt im neuen Postfach liegt, wird in `uebertragen.txt` vermerkt.
+Bei jedem Sync liest die App beide Postfächer neu ein, nur lesend, und vergleicht die Mails
+anhand ihrer Message-ID. Übertragen wird nur, was im neuen Postfach fehlt **und** noch nie
+übertragen wurde. Danach kopiert [imapsync](https://imapsync.lamiral.info/) Ordner für Ordner genau diese Mails.
+
+Die Datei `uebertragen.txt` im Datenordner merkt sich zusätzlich alle Mails, die schon einmal
+im neuen Postfach angekommen sind. Nur deshalb bleibt eine dort gelöschte Mail gelöscht.
+Geht die Datei verloren, entstehen **keine doppelten Mails**, denn was im neuen Postfach liegt,
+erkennt die App auch ohne die Datei. Nur im neuen Postfach gelöschte Mails würden dann noch einmal kopiert.
 
 Die Verbindungen sind verschlüsselt, und die Zertifikate der Server werden geprüft.
-
-## Entwicklung
-
-Voraussetzungen: Python 3.13 mit Tk. Für den Mac-Build zusätzlich die Xcode Command Line Tools und Homebrew mit `openssl@3`.
-
-```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-./scripts/build-imapsync-macos.sh          # imapsync -> vendor/imapsync
-.venv/bin/python -m unittest discover -s tests
-PYTHONPATH=src .venv/bin/python tests/e2e.py -- .venv/bin/python -m mailsync   # braucht Java und "cryptography"
-PYTHONPATH=src .venv/bin/python -m mailsync  # App aus dem Quelltext starten
-.venv/bin/pyinstaller --noconfirm mailsync.spec   # -> dist/
-```
-
-Die Windows-Version wird automatisch auf GitHub gebaut (`.github/workflows/build.yml`).
-Dabei synchronisiert die fertige App für Windows und Mac jedes Mal zwei Postfächer auf einem
-Test-Mailserver ([GreenMail](https://greenmail-mail-test.github.io/greenmail/), `tests/e2e.py`):
-genau einmal übertragen, Ordner, Datum und Gelesen erhalten, Papierkorb ausgelassen,
-im Ziel gelöschte Mails kommen nicht wieder.
-Die Screenshots erstellt der Workflow „Screenshots“ (`scripts/screenshots.py`, mit Beispieldaten).
-Ein neues Release entsteht mit `git tag v1.x.y && git push --tags`.
 
 ## Lizenz
 
 [MIT](LICENSE). Die mitgelieferte Software und ihre Lizenzen stehen in [THIRD_PARTY.md](THIRD_PARTY.md).
+Hinweise zur Entwicklung stehen in [CLAUDE.md](CLAUDE.md).

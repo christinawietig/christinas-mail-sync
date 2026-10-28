@@ -22,10 +22,10 @@ jobs:
       - name: Python-Pakete
         run: pip install -r requirements.txt pillow ${{ runner.os == 'macOS' && 'pyobjc-framework-Quartz' || '' }}
       - name: Screenshots
-        run: python scripts/screenshots.py docs/screenshots
+        run: python scripts/screenshots.py shots
         env:
           PYTHONPATH: src
       - uses: actions/upload-artifact@v4
         with:
           name: screenshots-${{ runner.os }}
-          path: docs/screenshots/*.png
+          path: shots/*.png
