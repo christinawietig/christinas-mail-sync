@@ -47,7 +47,9 @@ PYTHONPATH=src .venv/bin/python tests/e2e.py -- "dist/Christinas Mail-Sync.app/C
 
 - `build.yml`: Baut Windows und macOS, Unit-Tests, Selbsttest (imapsync + Schlüsselbund) und
   Ende-zu-Ende-Test der fertigen App mit GreenMail. Bei Tags `v*` entsteht ein Release.
-- `screenshots.yml` (manuell): `scripts/screenshots.py` mit Beispieldaten; Ergebnis nach `docs/screenshots/`.
+- `screenshots.yml` (manuell): `scripts/screenshots.py` mit Beispieldaten. Artefakte herunterladen
+  (`gh run download`) und mit `scripts/combine-screenshots.py ORDNER docs/screenshots` paarweise
+  zusammensetzen (macOS links, Windows rechts, gleich hoch, ein Bild – sonst bricht GitHub sie um).
 
 ## Offene Punkte
 

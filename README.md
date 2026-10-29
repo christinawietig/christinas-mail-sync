@@ -8,8 +8,7 @@ Für Windows und Mac, ohne Installation von Zusatzprogrammen.
 - **Ordner bleiben erhalten**, ebenso Datum und Gelesen-Markierung.
 
 <p align="center">
-  <img src="docs/screenshots/macos-2-sync.png" height="180" alt="Sync läuft unter macOS">
-  <img src="docs/screenshots/windows-3-fertig.png" height="180" alt="Sync fertig unter Windows">
+  <img src="docs/screenshots/sync.png" alt="Sync unter macOS und Windows">
 </p>
 <p align="center"><em>Ein Doppelklick genügt – links macOS während des Syncs, rechts Windows danach</em></p>
 
@@ -45,8 +44,7 @@ Die App ist nicht bei Apple oder Microsoft registriert. Deshalb warnt der Comput
 3. Auf **Prüfen und speichern** klicken.
 
 <p align="center">
-  <img src="docs/screenshots/macos-1-einstellungen.png" height="460" alt="Einstellungen unter macOS">
-  <img src="docs/screenshots/windows-1-einstellungen.png" height="460" alt="Einstellungen unter Windows">
+  <img src="docs/screenshots/einstellungen.png" alt="Einstellungen unter macOS und Windows">
 </p>
 <p align="center"><em>Einstellungen mit eingefügtem Code – links macOS, rechts Windows</em></p>
 
