@@ -65,8 +65,12 @@ wait_status() {
 }
 
 build_dmg() {
+  # Die DMG oeffnet sich als "Christinas Mail-Sync 1.2.3". Der Dateiname bleibt gleich,
+  # damit die Download-Links in der README immer auf die neueste Version zeigen.
+  local version
+  version=$(PYTHONPATH=src python3 -c 'import mailsync; print(mailsync.__version__)')
   rm -f "$DMG"
-  dmgbuild -s installer/dmg-settings.py "$NAME" "$DMG"
+  dmgbuild -s installer/dmg-settings.py "$NAME $version" "$DMG"
 }
 
 case "${1:-}" in

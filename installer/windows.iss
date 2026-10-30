@@ -15,6 +15,13 @@
 AppId={{695C6AFB-3343-4A25-90BB-CED08A5B8A8C}
 AppName={#AppName}
 AppVersion={#AppVersion}
+; Version im Titel des Installers und in den Dateieigenschaften der Setup.exe
+; (der Dateiname bleibt gleich, damit die Download-Links in der README immer stimmen)
+AppVerName={#AppName} {#AppVersion}
+VersionInfoVersion={#AppVersion}
+VersionInfoProductVersion={#AppVersion}
+VersionInfoDescription={#AppName} {#AppVersion} Setup
+VersionInfoCompany=Christina Wietig
 AppPublisher=Christina Wietig
 AppPublisherURL=https://github.com/christinawietig/christinas-mail-sync
 AppSupportURL=https://github.com/christinawietig/christinas-mail-sync

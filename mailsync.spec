@@ -23,8 +23,27 @@ a = Analysis(
     hiddenimports=["keyring.backends.macOS", "keyring.backends.Windows"],
 )
 pyz = PYZ(a.pure)
+
+version_info = None
+if win:
+    # Versionsnummer in den Dateieigenschaften der exe (Eigenschaften -> Details)
+    from PyInstaller.utils.win32.versioninfo import (FixedFileInfo, StringFileInfo, StringStruct, StringTable,
+                                                     VarFileInfo, VarStruct, VSVersionInfo)
+    nums = tuple(([int(n) for n in __version__.split(".")] + [0, 0, 0, 0])[:4])
+    version_info = VSVersionInfo(
+        ffi=FixedFileInfo(filevers=nums, prodvers=nums),
+        kids=[StringFileInfo([StringTable("040704B0", [
+                  StringStruct("CompanyName", "Christina Wietig"),
+                  StringStruct("FileDescription", APP_NAME),
+                  StringStruct("FileVersion", __version__),
+                  StringStruct("ProductName", APP_NAME),
+                  StringStruct("ProductVersion", __version__),
+                  StringStruct("LegalCopyright", "Christina Wietig, MIT-Lizenz"),
+                  StringStruct("OriginalFilename", APP_NAME + ".exe")])]),
+              VarFileInfo([VarStruct("Translation", [0x0407, 1200])])])
+
 exe = EXE(pyz, a.scripts, exclude_binaries=True, name=APP_NAME, console=False,
-          icon="assets/MailSync.ico" if win else None, upx=False)
+          icon="assets/MailSync.ico" if win else None, version=version_info, upx=False)
 coll = COLLECT(exe, a.binaries, a.datas, name=APP_NAME, upx=False)
 
 if not win:

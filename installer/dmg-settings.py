@@ -1,6 +1,6 @@
 # Einstellungen fuer dmgbuild: DMG-Fenster mit der App links, dem Ordner Programme
 # rechts und einem Pfeil dazwischen (assets/dmg-background*.png).
-# Aufruf:  dmgbuild -s installer/dmg-settings.py "Christinas Mail-Sync" dist/Christinas-Mail-Sync.dmg
+# Aufruf:  dmgbuild -s installer/dmg-settings.py "Christinas Mail-Sync 1.2.3" dist/Christinas-Mail-Sync.dmg
 import os.path
 
 APP = "Christinas Mail-Sync.app"

@@ -56,6 +56,12 @@ jobs:
           $version = python -c "import sys; sys.path.insert(0, 'src'); import mailsync; print(mailsync.__version__)"
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" installer\windows.iss
           if ($LASTEXITCODE -ne 0) { exit 1 }
+          # Versionsnummer in den Dateieigenschaften von Setup.exe und App
+          foreach ($f in "dist\Christinas-Mail-Sync-Setup.exe", "dist\Christinas Mail-Sync\Christinas Mail-Sync.exe") {
+            $v = (Get-Item $f).VersionInfo
+            Write-Host "$f : Produktversion $($v.ProductVersion), Dateiversion $($v.FileVersion)"
+            if (-not $v.ProductVersion.StartsWith($version)) { Write-Error "Version fehlt in $f"; exit 1 }
+          }
           "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       # Update-Test: Wie bei den Kollegen liegt die veroeffentlichte Version schon eingerichtet
       # auf dem Rechner (Einstellungen + Passwoerter). Die neue wird danach drueberinstalliert.
