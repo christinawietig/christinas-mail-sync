@@ -121,6 +121,14 @@ def main():
         return "6-update"
 
     @step
+    def failed():
+        app.banner.destroy()
+        app.banner = None
+        app.show_sync("", "")
+        app.frame.on_event("done", {"result": Result(transferred=12, failed_folders=1)})
+        return "7-fehler"
+
+    @step
     def about():
         run.dialog = gui.AboutDialog(app)
         return "4-ueber"

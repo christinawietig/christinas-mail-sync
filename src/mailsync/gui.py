@@ -30,6 +30,14 @@ def asset(name):
     return bundled("assets", name)
 
 
+PASTE_KEYS = "⌘ + V" if sys.platform == "darwin" else "Strg + V"
+HELP_TEXT = ("Wenn es weiterhin nicht klappt, schicke mir das Protokoll. Klicke dazu auf „Protokoll kopieren“. "
+             "Damit liegt das Protokoll in der Zwischenablage. Füge es in eine neue E-Mail ein und schicke "
+             "sie an Christina.")
+COPIED_TEXT = ("✓ Das Protokoll liegt jetzt in der Zwischenablage. Öffne eine neue E-Mail, füge es mit %s ein "
+               "und schicke die E-Mail an Christina." % PASTE_KEYS)
+
+
 def system_name():
     if sys.platform == "darwin":
         return "macOS " + platform.mac_ver()[0]
@@ -385,6 +393,8 @@ class SyncFrame(ttk.Frame):
         self.bar.start(15)
         self.eta = ttk.Label(self, text="", foreground=GREY)
         self.eta.pack(anchor="w", pady=(4, 0))
+        # Nach Fehlern: wie man das Protokoll weitergibt
+        self.help = ttk.Label(self, text=HELP_TEXT, wraplength=420, justify="left")
 
         buttons = ttk.Frame(self)
         buttons.pack(fill="x", pady=(10, 0))
@@ -408,6 +418,7 @@ class SyncFrame(ttk.Frame):
         self.clipboard_clear()
         self.clipboard_append(support_text(self.log_path, self.passwords, __version__, system_name()))
         self.copy_button.configure(text="✓ Kopiert")
+        self.help.configure(text=COPIED_TEXT, foreground=GREEN)
 
     def _main(self):
         if self.app.sync:
@@ -453,9 +464,8 @@ class SyncFrame(ttk.Frame):
                 self._finish("Sync abgebrochen.", "Beim nächsten Start geht es einfach weiter.", ok=True)
             elif r.failed_folders:
                 self._finish("Nicht alles hat geklappt.",
-                             "%s Mail(s) übertragen, in %d Ordner(n) gab es Fehler. Einfach später nochmal "
-                             "starten. Wenn es wieder nicht klappt: „Protokoll kopieren“ und an die Person "
-                             "schicken, die dir hilft." % (format_count(r.transferred), r.failed_folders), ok=False)
+                             "%s Mail(s) übertragen, in %d Ordner(n) gab es Fehler. Starte den Sync einfach "
+                             "später noch einmal." % (format_count(r.transferred), r.failed_folders), ok=False)
             elif r.transferred == 0:
                 self._finish("Alles aktuell.", "Keine neuen Mails.", ok=True)
             else:
@@ -512,6 +522,7 @@ class SyncFrame(ttk.Frame):
             self.about_button.pack(side="left", padx=(8, 0))
         else:
             # Hilfe holen: Protokoll weitergeben oder selbst ansehen
+            self.help.pack(anchor="w", pady=(4, 0), before=self.eta)
             self.copy_button.pack(side="left", padx=(8, 0))
             self.log_button.pack(side="left", padx=(8, 0))
         self.app.root.bell()

@@ -61,8 +61,8 @@ Der Code enthält nie Passwörter.
 - Ordner, Datum und Gelesen-Markierung bleiben erhalten.
 - Eine im neuen Postfach gelöschte Mail kommt nicht wieder.
 - **Stopp** schadet nicht. Beim nächsten Start geht es weiter.
-- Hat etwas nicht geklappt, klicke auf **Protokoll kopieren** und schicke es mir.
-  Passwörter stehen nicht darin.
+- Hat etwas nicht geklappt, klicke auf **Protokoll kopieren**. Füge das Protokoll in eine neue E-Mail ein
+  und schicke sie mir. Passwörter stehen nicht darin.
 - Passwörter liegen im Schlüsselbund (Mac) bzw. in der Anmeldeinformationsverwaltung (Windows),
   alles andere im Ordner `Christinas Mail-Sync` unter `~/Library/Application Support` (Mac)
   bzw. `%APPDATA%` (Windows). Die Verbindungen sind verschlüsselt.

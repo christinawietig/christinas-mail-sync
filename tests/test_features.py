@@ -246,6 +246,7 @@ class SyncFrameTest(unittest.TestCase):
         self.assertTrue(str(f.eta["text"]).startswith("Noch ca. "))
         f.on_event("done", {"result": sync.Result(transferred=1243)})
         self.assertEqual(f.headline["text"], "Fertig.")
+        self.assertFalse(f.help.winfo_manager())  # Hilfetext nur nach Fehlern
         self.assertEqual(str(f.eta["text"]), "")
 
     def test_cancel_in_preview(self):
@@ -262,7 +263,10 @@ class SyncFrameTest(unittest.TestCase):
             fh.write("Fehler mit pw1\n")
         f.on_event("done", {"result": sync.Result(transferred=1, failed_folders=1)})
         self.assertTrue(f.copy_button.winfo_manager())
+        self.assertTrue(f.help.winfo_manager())
+        self.assertIn("Zwischenablage", f.help["text"])
         f.copy_button.invoke()
+        self.assertTrue(str(f.help["text"]).startswith("✓ Das Protokoll liegt jetzt in der Zwischenablage"))
         text = f.clipboard_get()
         self.assertIn("Fehler mit ********", text)
         self.assertNotIn("pw1", text)
