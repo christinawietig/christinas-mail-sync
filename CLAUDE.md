@@ -25,6 +25,9 @@ Die README ist für Anwenderinnen und Anwender (nicht technisch, Deutsch). Techn
 - Versteckte Aufrufe für Tests: `--selftest DATEI HOST1 HOST2`, `--sync-headless DATEI`
   (Passwörter aus `MAILSYNC_PASSWORD1/2`). `MAILSYNC_DATA_DIR` und `MAILSYNC_CA_FILE` ersetzen Datenordner und CA.
 
+- Abgleich: Bei jedem Sync werden beide Postfächer neu gelesen. Bekannt = Ziel ∪ `uebertragen.txt`.
+  Fehlt die Datei, entstehen keine Duplikate; nur im Ziel gelöschte Mails kämen wieder.
+
 ## Bauen und testen
 
 Voraussetzungen: Python 3.13 mit Tk. Für den Mac-Build zusätzlich die Xcode Command Line Tools und Homebrew mit `openssl@3`.
