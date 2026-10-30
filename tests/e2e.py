@@ -195,7 +195,10 @@ def run_app(app, data_dir, tmp, run):
     with open(out, encoding="utf-8") as f:
         result = json.load(f)
     print("Lauf %d: %s" % (run, result))
-    assert result["kind"] == "done" and not result["stopped"] and result["failed_folders"] == 0, result
+    if not (result["kind"] == "done" and not result["stopped"] and result["failed_folders"] == 0):
+        if os.path.exists(log):
+            print(text)
+        raise SystemExit("App-Lauf %d: %s" % (run, result))
     return result["transferred"]
 
 

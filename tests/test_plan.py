@@ -79,6 +79,24 @@ class SyncTest(unittest.TestCase):
             with sync.Lock(p):
                 pass
 
+    def test_stale_tempdirs_only_own(self):
+        with tempfile.TemporaryDirectory() as d:
+            old = tempfile.tempdir
+            tempfile.tempdir = d
+            try:
+                own = tempfile.mkdtemp(prefix=sync.TMP_PREFIX)
+                open(os.path.join(own, sync.TMP_MARKER), "w").close()
+                open(os.path.join(own, "p1"), "w").close()
+                # Gleicher Anfang, aber nicht von der App markiert: bleibt
+                foreign = tempfile.mkdtemp(prefix=sync.TMP_PREFIX)
+                other = tempfile.mkdtemp(prefix="mailsync-e2e-")
+                sync.remove_stale_tempdirs()
+                self.assertFalse(os.path.exists(own))
+                self.assertTrue(os.path.exists(foreign))
+                self.assertTrue(os.path.exists(other))
+            finally:
+                tempfile.tempdir = old
+
     def test_suggest_target_user(self):
         s = config.Settings(target_user_rule="localpart")
         self.assertEqual(s.suggest_target_user("c.muster@example.org"), "c.muster")

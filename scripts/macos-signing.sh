@@ -32,6 +32,8 @@ case "${1:-}" in
     security import "$RUNNER_TEMP/cert-classic.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign
     rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/cert-classic.p12"
     security set-key-partition-list -S apple-tool:,apple: -s -k "$KC_PW" "$KC" >/dev/null
+    # Bisherige Schluesselbunde behalten (Pfade ohne Leerzeichen, daher ohne Anfuehrungszeichen)
+    # shellcheck disable=SC2046
     security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
     ID=$(security find-identity -v -p codesigning "$KC" | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"' || true)
     if [ -z "$ID" ]; then echo "Kein Developer-ID-Zertifikat gefunden" >&2; exit 1; fi

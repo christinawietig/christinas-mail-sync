@@ -1,3 +1,5 @@
+# shellcheck shell=bash disable=SC2034
+# (Variablen werden per "." in andere Skripte eingelesen)
 # Welche imapsync-Version eingebaut wird. Das offizielle Paket enthaelt
 # imapsync.exe (Windows) und den Quelltext (Cook/imapsync, fuer den Mac-Build).
 IMAPSYNC_VERSION=2.314

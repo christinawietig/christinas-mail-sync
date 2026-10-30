@@ -186,6 +186,7 @@ class Sync:
         result = Result()
         remove_stale_tempdirs()
         tmp = tempfile.mkdtemp(prefix=TMP_PREFIX)
+        open(os.path.join(tmp, TMP_MARKER), "w").close()
         try:
             pass1 = self._passfile(tmp, "p1", self.source[3])
             pass2 = self._passfile(tmp, "p2", self.target[3])
@@ -255,14 +256,17 @@ class Sync:
         return copied, rc
 
 
-TMP_PREFIX = "mailsync-"
+TMP_PREFIX = "christinas-mail-sync-"
+TMP_MARKER = "christinas-mail-sync.tmp"
 
 
 def remove_stale_tempdirs():
     """Passwortdateien frueherer Laeufe loeschen, die nicht aufraeumen konnten (Absturz,
-    App beendet). Nur unter der Sync-Sperre aufrufen: dann laeuft kein anderer Sync."""
+    App beendet). Nur unter der Sync-Sperre aufrufen: dann laeuft kein anderer Sync.
+    Geloescht wird nur, was die App selbst angelegt und markiert hat."""
     for path in glob.glob(os.path.join(tempfile.gettempdir(), TMP_PREFIX + "*")):
-        shutil.rmtree(path, ignore_errors=True)
+        if os.path.isfile(os.path.join(path, TMP_MARKER)):
+            shutil.rmtree(path, ignore_errors=True)
 
 
 def describe_error(e):

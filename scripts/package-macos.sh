@@ -22,7 +22,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 NAME="Christinas Mail-Sync"
-APP="dist/$NAME.app"
 DMG="dist/Christinas-Mail-Sync.dmg"
 SIGNED="dist/signed"
 SIGNED_DMG="$SIGNED/Christinas-Mail-Sync.dmg"
