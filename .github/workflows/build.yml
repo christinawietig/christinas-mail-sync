@@ -15,6 +15,12 @@ on:
 permissions:
   contents: read
 
+# Ein neuer Push ersetzt einen noch laufenden Build desselben Zweigs. Versions-Tags
+# laufen immer zu Ende.
+concurrency:
+  group: build-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
   # Workflows und Shell-Skripte statisch pruefen (actionlint ruft dabei shellcheck auf)
   lint:
