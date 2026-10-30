@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from mailsync import config, plan, setupcode, sync  # noqa: E402
+from mailsync import config, dock, plan, setupcode, sync  # noqa: E402
 
 
 class PlanTest(unittest.TestCase):
@@ -53,6 +53,21 @@ class SyncTest(unittest.TestCase):
         s = config.Settings(target_user_rule="localpart")
         self.assertEqual(s.suggest_target_user("c.muster@schule.de"), "c.muster")
         self.assertEqual(config.Settings().suggest_target_user("c.muster@schule.de"), "")
+
+
+class DockTest(unittest.TestCase):
+    APP = "/Applications/Christinas Mail-Sync.app"
+
+    def test_in_dock(self):
+        tile = {"tile-data": {"file-data": {"_CFURLString": "file:///Applications/Christinas%20Mail-Sync.app/"}}}
+        self.assertTrue(dock.in_dock({"persistent-apps": [tile]}, self.APP))
+        self.assertFalse(dock.in_dock({"persistent-apps": []}, self.APP))
+        self.assertFalse(dock.in_dock({}, self.APP))
+
+    def test_only_from_applications(self):
+        self.assertTrue(dock.installed(self.APP))
+        self.assertFalse(dock.installed("/Volumes/Christinas Mail-Sync/Christinas Mail-Sync.app"))
+        self.assertFalse(dock.installed("/private/var/folders/x/AppTranslocation/y/d/Christinas Mail-Sync.app"))
 
 
 class SetupCodeTest(unittest.TestCase):

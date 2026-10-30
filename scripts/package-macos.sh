@@ -12,6 +12,21 @@ cd "$(dirname "$0")/.."
 APP="dist/Christinas Mail-Sync.app"
 DMG="dist/Christinas-Mail-Sync.dmg"
 
+if [ -n "${NOTARY_KEY:-}" ]; then
+  # Leerzeichen/Zeilenumbrueche aus kopierten Werten entfernen
+  NOTARY_KEY_ID=$(printf '%s' "${NOTARY_KEY_ID:-}" | tr -d '[:space:]')
+  NOTARY_ISSUER=$(printf '%s' "${NOTARY_ISSUER:-}" | tr -d '[:space:]')
+  if ! [[ "$NOTARY_KEY_ID" =~ ^[A-Z0-9]{10}$ ]]; then
+    echo "NOTARY_KEY_ID ist keine Key ID (10 Zeichen, wie im Dateinamen AuthKey_XXXXXXXXXX.p8)" >&2
+    exit 1
+  fi
+  if ! [[ "$NOTARY_ISSUER" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+    echo "NOTARY_ISSUER_ID ist keine Issuer ID (Form xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx," >&2
+    echo "steht in App Store Connect oben auf der Seite der Teamschluessel)" >&2
+    exit 1
+  fi
+fi
+
 notarize() {
   # notarytool meldet "Invalid" nicht ueber den Rueckgabewert, daher Status pruefen
   local out id

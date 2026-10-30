@@ -73,6 +73,10 @@ class App:
         else:
             self.show_setup()
         self.root.after(100, self._poll)
+        if sys.platform == "darwin":
+            # Einmalig ins Dock (im Hintergrund, Fehler egal)
+            from . import dock
+            self.root.after(1500, lambda: threading.Thread(target=dock.add_once, daemon=True).start())
         self.root.mainloop()
 
     def _passwords(self):
