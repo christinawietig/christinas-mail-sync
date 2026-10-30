@@ -39,7 +39,8 @@ export PERL5LIB="$LOCAL/lib/perl5" PATH="$LOCAL/bin:$PATH"
 cpanm() { "$PERL" "$WORK/cpanm" -q --notest -l "$LOCAL" "$@"; }
 # Eigenes Net::SSLeay (statisch gegen OpenSSL 3) statt Apples Version gegen /usr/lib/libssl
 OPENSSL_PREFIX="$SSL" cpanm --reinstall Net::SSLeay@1.96 IO::Socket::SSL@2.099
-cpanm Encode::IMAPUTF7@1.07 IO::Tee@0.66 Mail::IMAPClient@3.43 Unicode::String@2.10 Readonly@2.05 \
+# IO::Tee als Paket: IO-Tee-0.66 enthaelt das Modul mit Versionsnummer 0.65
+cpanm Encode::IMAPUTF7@1.07 NEILB/IO-Tee-0.66.tar.gz Mail::IMAPClient@3.43 Unicode::String@2.10 Readonly@2.05 \
       Sys::MemInfo@0.99 File::Tail@1.3 File::Copy::Recursive@0.45 Digest::HMAC_SHA1@1.05 \
       Regexp::Common@2024080801 Term::ReadKey@2.38
 

@@ -95,7 +95,7 @@ def free_port():
 def start_greenmail(java, jar, keystore, port, tmp):
     log = open(os.path.join(tmp, "greenmail.log"), "w")
     proc = subprocess.Popen([
-        java, "-Dgreenmail.imaps.hostname=" + HOST, "-Dgreenmail.imaps.port=%d" % port,
+        java, "-Dgreenmail.imaps.hostname=" + HOST, "-Dgreenmail.imaps.port=%d" % port, "-Dgreenmail.startup.timeout=60000",
         "-Dgreenmail.users=" + ",".join("%s:%s" % u for u in USERS.items()),
         "-Dgreenmail.tls.keystore.file=" + keystore, "-Dgreenmail.tls.keystore.password=" + KEYSTORE_PW,
         "-jar", jar], stdout=log, stderr=subprocess.STDOUT)
