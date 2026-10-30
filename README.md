@@ -1,4 +1,4 @@
-# <img src="assets/MailSync-256.png" width="56" align="center" alt=""> Christinas Mail-Sync
+# <img src="assets/MailSync-256.png" width="36" align="absmiddle" alt=""> Christinas Mail-Sync
 
 Kopiert Mails vom alten Postfach ins neue. Jede Mail genau einmal, so oft man will.
 
