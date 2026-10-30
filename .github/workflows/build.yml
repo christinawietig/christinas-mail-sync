@@ -111,9 +111,14 @@ jobs:
           # nicht ("MAC verification failed"). Mit OpenSSL lesen (-legacy: der Schluesselbund
           # verschluesselt mit RC2-40) und mit 3DES/SHA-1 neu verpacken.
           OPENSSL="$(brew --prefix openssl@3)/bin/openssl"
-          "$OPENSSL" pkcs12 -legacy -in "$RUNNER_TEMP/cert.p12" -nodes -passin env:P12_PASSWORD \
-            | "$OPENSSL" pkcs12 -export -passout env:P12_PASSWORD -out "$RUNNER_TEMP/cert-classic.p12" \
-                -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1
+          PEM="$RUNNER_TEMP/cert.pem"
+          (umask 077; "$OPENSSL" pkcs12 -legacy -in "$RUNNER_TEMP/cert.p12" -nodes -passin env:P12_PASSWORD -out "$PEM")
+          # Nur Anzahl und oeffentlicher Name, nie geheime Werte ausgeben
+          echo "In der .p12: $(grep -c 'BEGIN CERTIFICATE' "$PEM" || true) Zertifikat(e), $(grep -c 'BEGIN .*PRIVATE KEY' "$PEM" || true) privater Schluessel"
+          grep -q 'BEGIN CERTIFICATE' "$PEM" && "$OPENSSL" x509 -in "$PEM" -noout -subject -enddate
+          "$OPENSSL" pkcs12 -export -in "$PEM" -passout env:P12_PASSWORD -out "$RUNNER_TEMP/cert-classic.p12" \
+            -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1
+          rm -f "$PEM"
           security import "$RUNNER_TEMP/cert-classic.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign
           rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/cert-classic.p12"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KC_PW" "$KC" >/dev/null
