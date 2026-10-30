@@ -12,28 +12,25 @@ Für Windows und Mac, ohne Installation von Zusatzprogrammen.
 </p>
 <p align="center"><em>Ein Doppelklick genügt – links macOS während des Syncs, rechts Windows danach</em></p>
 
-## Herunterladen
+## Herunterladen und installieren
 
 Unter [Releases](https://github.com/christinawietig/christinas-mail-sync/releases/latest):
 
-- **Windows:** `Christinas-Mail-Sync-Windows.exe`
-- **Mac (mit Apple-Chip, ab 2020):** `Christinas-Mail-Sync-macOS.zip`
+**Mac** (mit Apple-Chip, ab 2020): `Christinas-Mail-Sync.dmg`
 
-## Erster Start
+1. Die DMG-Datei doppelklicken.
+2. **Christinas Mail-Sync** auf den Ordner **Programme** ziehen.
+3. Die App aus dem Ordner Programme starten. macOS fragt beim ersten Mal, ob die aus dem Internet
+   geladene App geöffnet werden soll: **Öffnen**.
 
-Die App ist nicht bei Apple oder Microsoft registriert. Deshalb warnt der Computer beim ersten Start einmalig.
-
-**Mac**
-
-1. Die ZIP-Datei doppelklicken und **Christinas Mail-Sync** in den Ordner **Programme** ziehen.
-2. Die App doppelklicken. Es erscheint eine Warnung. Auf **Fertig** klicken.
-3. **Systemeinstellungen → Datenschutz & Sicherheit** öffnen, ganz nach unten scrollen und bei
-   „Christinas Mail-Sync“ auf **Dennoch öffnen** klicken.
-
-**Windows**
+**Windows:** `Christinas-Mail-Sync-Setup.exe`
 
 1. Die Datei doppelklicken. Falls „Der Computer wurde durch Windows geschützt“ erscheint:
    auf **Weitere Informationen** und dann auf **Trotzdem ausführen** klicken.
+2. Den Schritten folgen. Administratorrechte sind nicht nötig.
+   Danach steht die App im Startmenü und auf Wunsch auf dem Desktop.
+
+## Erster Start
 
 **Danach** öffnet die App einmalig die Einstellungen:
 

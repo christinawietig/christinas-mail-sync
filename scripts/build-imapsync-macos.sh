@@ -1,6 +1,9 @@
 #!/bin/bash
-# Baut imapsync als eigenstaendige Datei fuer Macs mit Apple-Chip (arm64).
-# Ergebnis: vendor/imapsync. Beim Nutzer wird weder Perl noch Homebrew gebraucht.
+# Baut imapsync fuer Macs mit Apple-Chip (arm64): das Skript und alle noetigen
+# Perl-Module als einzelne Dateien, gestartet mit dem Perl von macOS (/usr/bin/perl).
+# Ergebnis: vendor/imapsync-macos/ (imapsync + lib/). Beim Nutzer wird weder Homebrew
+# noch eine Perl-Installation gebraucht. Einzelne Dateien statt einer gepackten Datei,
+# weil Apple nur so jede Datei signieren und die App notarisieren kann.
 #
 # Voraussetzungen auf dem Build-Rechner: Xcode Command Line Tools, Homebrew mit openssl@3.
 # OpenSSL wird statisch eingebaut, damit das Ergebnis nicht von Homebrew abhaengt.
@@ -8,7 +11,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 . scripts/imapsync-version.sh
 
-OUT="$(pwd)/vendor/imapsync"
+OUT="$(pwd)/vendor/imapsync-macos"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 PERL=/usr/bin/perl
@@ -35,21 +38,24 @@ cpanm() { "$PERL" "$WORK/cpanm" -q --notest -l "$LOCAL" "$@"; }
 # Eigenes Net::SSLeay (statisch gegen OpenSSL 3) statt Apples Version gegen /usr/lib/libssl
 OPENSSL_PREFIX="$SSL" cpanm --reinstall Net::SSLeay IO::Socket::SSL
 cpanm Encode::IMAPUTF7 IO::Tee Mail::IMAPClient Unicode::String Readonly Sys::MemInfo \
-      File::Tail File::Copy::Recursive Digest::HMAC_SHA1 Regexp::Common Term::ReadKey \
-      Module::ScanDeps PAR::Packer
+      File::Tail File::Copy::Recursive Digest::HMAC_SHA1 Regexp::Common Term::ReadKey
 
 if otool -L "$LOCAL"/lib/perl5/darwin-thread-multi-2level/auto/Net/SSLeay/SSLeay.bundle | grep -q libssl; then
   echo "Net::SSLeay haengt noch an einer libssl-Bibliothek - abgebrochen." >&2
   exit 1
 fi
 
-echo "== Packen"
-# -x: imapsync beim Packen einmal starten, um zur Laufzeit geladene Module zu finden
-"$PERL" "$LOCAL/bin/pp" -x -o "$WORK/imapsync.bin" \
-  -M 'Test2::**' -M IO::Socket::SSL -M Net::SSLeay -M Mail::IMAPClient -M Encode::IMAPUTF7 \
-  "$WORK/imapsync"
-"$WORK/imapsync.bin" --version
+echo "== Zusammenstellen"
+STAGE="$WORK/imapsync-macos"
+mkdir -p "$STAGE"
+cp "$WORK/imapsync" "$STAGE/imapsync"
+cp -R "$LOCAL/lib/perl5" "$STAGE/lib"
+# Nur was zur Laufzeit gebraucht wird
+find "$STAGE/lib" \( -name '*.pod' -o -name '.packlist' -o -name 'perllocal.pod' \) -delete
+# Ohne Homebrew und ohne fremde Perl-Einstellungen pruefen
+env -i HOME="$WORK" /usr/bin/perl -I "$STAGE/lib" -I "$STAGE/lib/darwin-thread-multi-2level" \
+  "$STAGE/imapsync" --version
+rm -rf "$OUT"
 mkdir -p vendor
-mv "$WORK/imapsync.bin" "$OUT"
-chmod 755 "$OUT"
+mv "$STAGE" "$OUT"
 echo "Gebaut: $OUT"

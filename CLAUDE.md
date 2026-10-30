@@ -39,19 +39,29 @@ PYTHONPATH=src .venv/bin/python -m mailsync       # App aus dem Quelltext
 PYTHONPATH=src .venv/bin/python tests/e2e.py -- "dist/Christinas Mail-Sync.app/Contents/MacOS/Christinas Mail-Sync"
 ```
 
-- macOS: Das mit PAR::Packer gebaute imapsync darf PyInstaller nicht signieren (angehängtes Archiv).
-  `mailsync.spec` kopiert es nach dem BUNDLE nach `Contents/Resources/imapsync/` und signiert die App ad hoc neu.
+- macOS: imapsync liegt als Skript mit Perl-Modulen in `Contents/Resources/imapsync/` und läuft mit
+  `/usr/bin/perl` (5.34). Keine gepackte Einzeldatei (PAR::Packer), weil Apple die nicht signieren kann.
+  `mailsync.spec` signiert jede Mach-O-Datei einzeln, dann die App: mit `MACOS_SIGN_IDENTITY`
+  (Developer ID, Hardened Runtime, Zeitstempel), sonst ad hoc.
+- `scripts/package-macos.sh`: App notarisieren und heften, DMG bauen (`dmgbuild`, `installer/dmg-settings.py`,
+  Hintergrund aus `scripts/make-dmg-background.py`), DMG signieren, notarisieren, heften.
+- Windows: onedir-Build, daraus `installer/windows.iss` (Inno Setup) die `Christinas-Mail-Sync-Setup.exe`;
+  installiert ohne Adminrechte nach `%LOCALAPPDATA%\Programs`.
 - Windows: offizielles `imapsync.exe` (`scripts/fetch-imapsync-windows.ps1`, Prüfsumme in `scripts/imapsync-version.sh`).
 
 ## GitHub Actions
 
-- `build.yml`: Baut Windows und macOS, Unit-Tests, Selbsttest (imapsync + Schlüsselbund) und
-  Ende-zu-Ende-Test der fertigen App mit GreenMail. Bei Tags `v*` entsteht ein Release.
+- `build.yml`: Baut Windows (Setup wird still installiert, getestet und deinstalliert) und macOS (DMG),
+  Unit-Tests, Selbsttest (imapsync + Schlüsselbund) und Ende-zu-Ende-Test der fertigen App mit GreenMail.
+  Bei Tags `v*` entsteht ein Release.
+- Signieren/Notarisieren: Secrets in der GitHub-Umgebung `release` (nur Tags `v*` und `main`):
+  `MACOS_CERT_P12` (base64), `MACOS_CERT_PASSWORD`, `NOTARY_KEY_P8`, `NOTARY_KEY_ID`, `NOTARY_ISSUER_ID`.
+  Developer ID von Johannes Hoppe. Der macOS-Job nutzt die Umgebung nur bei Tags und beim Start von Hand.
 - `screenshots.yml` (manuell): `scripts/screenshots.py` mit Beispieldaten. Artefakte herunterladen
   (`gh run download`) und mit `scripts/combine-screenshots.py ORDNER docs/screenshots` paarweise
   zusammensetzen (macOS links, Windows rechts, gleich hoch, ein Bild – sonst bricht GitHub sie um).
 
 ## Offene Punkte
 
-- App ist ad hoc signiert, nicht notarisiert: macOS blockiert den ersten Start („Dennoch öffnen“ in
-  Datenschutz & Sicherheit). Abhilfe nur mit Apple Developer Program (Developer ID + Notarisierung).
+- Die Windows-Setup.exe ist nicht signiert: SmartScreen warnt beim ersten Start.
+- macOS-Mindestversion 12.0 ist ungeprüft; vorausgesetzt wird `/usr/bin/perl` 5.34.

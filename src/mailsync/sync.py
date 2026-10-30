@@ -45,35 +45,47 @@ def selftest(host1, host2, port=config.DEFAULT_PORT):
     """Startet imapsync und baut ohne Anmeldung eine gepruefte Verbindung zu
     beiden Servern auf. Liefert (Rueckgabewert, Ausgabe). Fuer den Build-Test."""
     with tempfile.TemporaryDirectory() as tmp:
-        cmd = [imapsync_path(), "--justconnect", "--nolog", "--noreleasecheck", "--tmpdir", tmp,
+        cmd = [*imapsync_cmd(), "--justconnect", "--nolog", "--noreleasecheck", "--tmpdir", tmp,
                "--host1", host1, "--port1", str(port), "--ssl1",
                "--host2", host2, "--port2", str(port), "--ssl2", *ssl_args()]
         flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-        p = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, cwd=tmp, timeout=300,
+        p = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, cwd=tmp, timeout=300, env=_env(),
                            creationflags=flags, text=True, encoding="utf-8", errors="replace")
     ok = p.returncode == 0 and "Exiting after a justconnect" in p.stdout
     return (0 if ok else 1), p.stdout + p.stderr
 
 
-def imapsync_path():
-    """imapsync aus dem App-Paket, im Quelltext aus vendor/, sonst aus dem PATH."""
-    name = "imapsync.exe" if sys.platform == "win32" else "imapsync"
+def imapsync_cmd():
+    """Befehl zum Starten von imapsync, als Liste.
+
+    Windows: imapsync.exe. macOS: das imapsync-Skript mit seinen Modulen, gestartet
+    mit dem Perl von macOS. Gesucht wird im App-Paket, im Quelltext in vendor/.
+    """
     if getattr(sys, "frozen", False):
-        candidates = [
-            os.path.join(sys._MEIPASS, "imapsync", name),
-            # macOS-App: Contents/MacOS/<app> -> Contents/Resources/imapsync/
-            os.path.join(os.path.dirname(sys.executable), "..", "Resources", "imapsync", name),
-        ]
+        bases = [os.path.join(sys._MEIPASS, "imapsync"),
+                 # macOS-App: Contents/MacOS/<app> -> Contents/Resources/imapsync/
+                 os.path.join(os.path.dirname(sys.executable), "..", "Resources", "imapsync")]
     else:
         root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        candidates = [os.path.join(root, "vendor", name)]
-    for c in candidates:
-        if os.path.isfile(c):
-            return c
-    found = shutil.which(name)
+        bases = [os.path.join(root, "vendor", "imapsync-macos"), os.path.join(root, "vendor")]
+    for base in bases:
+        if sys.platform == "win32":
+            exe = os.path.join(base, "imapsync.exe")
+            if os.path.isfile(exe):
+                return [exe]
+        else:
+            script, lib = os.path.join(base, "imapsync"), os.path.join(base, "lib")
+            if os.path.isfile(script) and os.path.isdir(lib):
+                return ["/usr/bin/perl", "-I", lib, "-I", os.path.join(lib, "darwin-thread-multi-2level"), script]
+    found = shutil.which("imapsync")
     if found:
-        return found
+        return [found]
     raise FileNotFoundError("imapsync wurde nicht gefunden.")
+
+
+def _env():
+    """Umgebung fuer imapsync: ohne fremde Perl-Einstellungen des Nutzers."""
+    return {k: v for k, v in os.environ.items() if not k.startswith("PERL")}
 
 
 class Lock:
@@ -154,7 +166,7 @@ class Sync:
             self.on_event("error", text=describe_error(e))
 
     def _sync(self):
-        exe = imapsync_path()
+        exe = imapsync_cmd()
         state = config.state_file()
         self.on_event("status", text="Prüfe die Postfächer …")
         todo = plan.plan(state, self.source, self.target, self.exclude, self._stop.is_set)
@@ -206,7 +218,7 @@ class Sync:
         host1, port1, user1, _ = self.source
         host2, port2, user2, _ = self.target
         cmd = [
-            exe,
+            *exe,
             "--host1", host1, "--port1", str(port1), "--ssl1", "--user1", user1, "--passfile1", pass1,
             "--host2", host2, "--port2", str(port2), "--ssl2", "--user2", user2, "--passfile2", pass2,
             "--automap", "--subscribeall", "--noresyncflags", "--addheader", *ssl_args(),
@@ -216,7 +228,7 @@ class Sync:
         flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
         self._proc = subprocess.Popen(
             cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            cwd=tmp, creationflags=flags, text=True, encoding="utf-8", errors="replace")
+            cwd=tmp, env=_env(), creationflags=flags, text=True, encoding="utf-8", errors="replace")
         copied = 0
         for line in self._proc.stdout:
             self._log.write(line)
