@@ -100,18 +100,18 @@ jobs:
           P12_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
           P8: ${{ secrets.NOTARY_KEY_P8 }}
         run: |
+          set -o pipefail
           KC="$RUNNER_TEMP/signing.keychain-db"
           KC_PW=$(openssl rand -hex 24)
           security create-keychain -p "$KC_PW" "$KC"
           security set-keychain-settings -lut 3600 "$KC"
           security unlock-keychain -p "$KC_PW" "$KC"
           echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          # Neuere macOS exportieren .p12 mit AES/SHA-256, das "security" hier nicht immer
-          # liest ("MAC verification failed"). Mit OpenSSL pruefen und klassisch neu verpacken.
+          # "security import" liest die von der Schluesselbundverwaltung exportierte .p12 hier
+          # nicht ("MAC verification failed"). Mit OpenSSL lesen (-legacy: der Schluesselbund
+          # verschluesselt mit RC2-40) und mit 3DES/SHA-1 neu verpacken.
           OPENSSL="$(brew --prefix openssl@3)/bin/openssl"
-          "$OPENSSL" pkcs12 -in "$RUNNER_TEMP/cert.p12" -noout -passin env:P12_PASSWORD \
-            || { echo "Passwort passt nicht zur .p12-Datei (laut OpenSSL)" >&2; exit 1; }
-          "$OPENSSL" pkcs12 -in "$RUNNER_TEMP/cert.p12" -nodes -passin env:P12_PASSWORD \
+          "$OPENSSL" pkcs12 -legacy -in "$RUNNER_TEMP/cert.p12" -nodes -passin env:P12_PASSWORD \
             | "$OPENSSL" pkcs12 -export -passout env:P12_PASSWORD -out "$RUNNER_TEMP/cert-classic.p12" \
                 -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1
           security import "$RUNNER_TEMP/cert-classic.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign
