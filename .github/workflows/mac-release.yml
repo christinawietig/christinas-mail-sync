@@ -1,0 +1,131 @@
+# Macht aus der eingereichten, gesicherten App (Artifact "macos-signed" eines Build-Laufs)
+# die DMG, sobald Apple die App freigegeben hat, und haengt sie ans Release.
+#
+# Laeuft direkt nach jedem Build, alle 30 Minuten (solange einem Release die DMG fehlt)
+# und von Hand. Prueft Apple noch, endet der Lauf ohne Fehler; der naechste versucht es erneut.
+name: Mac-Release abschliessen
+
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Build-Lauf (ID), leer = neuestes Release ohne DMG"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mac-release
+  cancel-in-progress: false
+
+jobs:
+  find:
+    # Nur eigene Builds aus Tags oder Start von Hand, nie aus Pull Requests von Forks
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.head_repository.full_name == github.repository &&
+       contains(fromJSON('["push","workflow_dispatch"]'), github.event.workflow_run.event))
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      run_id: ${{ steps.find.outputs.run_id }}
+      tag: ${{ steps.find.outputs.tag }}
+    steps:
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R: ${{ github.repository }}
+          EVENT_RUN: ${{ github.event.workflow_run.id }}
+          INPUT_RUN: ${{ inputs.run_id }}
+        run: |
+          has_signed() {
+            gh api "repos/$R/actions/runs/$1/artifacts" \
+              -q '[.artifacts[] | select(.name == "macos-signed" and (.expired | not))] | length' | grep -qx '[1-9][0-9]*'
+          }
+          has_dmg() {
+            gh release view "$1" -R "$R" --json assets -q '.assets[].name' 2>/dev/null | grep -qx 'Christinas-Mail-Sync.dmg'
+          }
+          RUN="${EVENT_RUN:-$INPUT_RUN}"
+          TAG=""
+          if [ -z "$RUN" ]; then
+            # Neuestes Release ohne DMG und dessen neuester Build mit gesicherter App
+            for t in $(gh release list -R "$R" -L 5 --json tagName -q '.[].tagName'); do
+              has_dmg "$t" && continue
+              for id in $(gh run list -R "$R" -w build.yml -b "$t" -e push -L 10 --json databaseId -q '.[].databaseId'); do
+                if has_signed "$id"; then RUN=$id; break; fi
+              done
+              [ -n "$RUN" ] && break
+            done
+            [ -z "$RUN" ] && { echo "Nichts zu tun"; exit 0; }
+          fi
+          if ! has_signed "$RUN"; then echo "Lauf $RUN hat keine signierte App - nichts zu tun"; exit 0; fi
+          info=$(gh api "repos/$R/actions/runs/$RUN" -q '[.head_repository.full_name, .event, .head_branch] | @tsv')
+          IFS=$'\t' read -r repo event branch <<< "$info"
+          if [ "$repo" != "$R" ]; then echo "Fremder Lauf" >&2; exit 1; fi
+          # Tag-Build: DMG ans Release; sonst (Start von Hand auf main) nur als Artifact
+          if [ "$event" = push ] && gh api "repos/$R/git/ref/tags/$branch" >/dev/null 2>&1; then
+            TAG=$branch
+            if has_dmg "$TAG"; then echo "$TAG hat schon eine DMG"; exit 0; fi
+          fi
+          echo "Build-Lauf $RUN ${TAG:+(Release $TAG)}"
+          echo "run_id=$RUN" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+  finish:
+    needs: find
+    if: needs.find.outputs.run_id != ''
+    runs-on: macos-latest
+    environment: release
+    timeout-minutes: 300
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Werkzeuge
+        run: |
+          brew list openssl@3 >/dev/null 2>&1 || brew install openssl@3
+          pip install dmgbuild==1.6.7
+      - name: Gesicherte App holen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "${{ needs.find.outputs.run_id }}" -R "$GITHUB_REPOSITORY" -n macos-signed -D dist/signed
+      - name: Signierzertifikat einrichten
+        env:
+          P12: ${{ secrets.MACOS_CERT_P12 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          P8: ${{ secrets.NOTARY_KEY_P8 }}
+        run: ./scripts/macos-signing.sh setup
+      - name: Apple fragen, DMG bauen und notarisieren
+        id: pkg
+        env:
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER_ID }}
+          # Direkt nach dem Build etwas warten (sonst geht es meist in Minuten), beim
+          # 30-Minuten-Takt nur kurz nachsehen
+          NOTARY_WAIT_MINUTES: ${{ github.event_name == 'schedule' && '0' || '20' }}
+        run: ./scripts/package-macos.sh finish
+      - name: Signierdaten entfernen
+        if: always()
+        run: ./scripts/macos-signing.sh cleanup
+      - name: DMG zum Release hinzufuegen
+        if: steps.pkg.outputs.pending == 'false' && needs.find.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.find.outputs.tag }}" -R "$GITHUB_REPOSITORY" --clobber dist/Christinas-Mail-Sync.dmg
+      - uses: actions/upload-artifact@v4
+        if: steps.pkg.outputs.pending == 'false' && needs.find.outputs.tag == ''
+        with:
+          name: macos-dmg
+          path: dist/Christinas-Mail-Sync.dmg

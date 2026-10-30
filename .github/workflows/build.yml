@@ -99,36 +99,7 @@ jobs:
           P12: ${{ secrets.MACOS_CERT_P12 }}
           P12_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
           P8: ${{ secrets.NOTARY_KEY_P8 }}
-        run: |
-          set -o pipefail
-          KC="$RUNNER_TEMP/signing.keychain-db"
-          KC_PW=$(openssl rand -hex 24)
-          security create-keychain -p "$KC_PW" "$KC"
-          security set-keychain-settings -lut 3600 "$KC"
-          security unlock-keychain -p "$KC_PW" "$KC"
-          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          # "security import" liest die von der Schluesselbundverwaltung exportierte .p12 hier
-          # nicht ("MAC verification failed"). Mit OpenSSL lesen (-legacy: der Schluesselbund
-          # verschluesselt mit RC2-40) und mit 3DES/SHA-1 neu verpacken.
-          OPENSSL="$(brew --prefix openssl@3)/bin/openssl"
-          PEM="$RUNNER_TEMP/cert.pem"
-          (umask 077; "$OPENSSL" pkcs12 -legacy -in "$RUNNER_TEMP/cert.p12" -nodes -passin env:P12_PASSWORD -out "$PEM")
-          # Nur Anzahl und oeffentlicher Name, nie geheime Werte ausgeben
-          echo "In der .p12: $(grep -c 'BEGIN CERTIFICATE' "$PEM" || true) Zertifikat(e), $(grep -c 'BEGIN .*PRIVATE KEY' "$PEM" || true) privater Schluessel"
-          grep -q 'BEGIN CERTIFICATE' "$PEM" && "$OPENSSL" x509 -in "$PEM" -noout -subject -enddate
-          "$OPENSSL" pkcs12 -export -in "$PEM" -passout env:P12_PASSWORD -out "$RUNNER_TEMP/cert-classic.p12" \
-            -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1
-          rm -f "$PEM"
-          security import "$RUNNER_TEMP/cert-classic.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign
-          rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/cert-classic.p12"
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KC_PW" "$KC" >/dev/null
-          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
-          ID=$(security find-identity -v -p codesigning "$KC" | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"')
-          if [ -z "$ID" ]; then echo "Kein Developer-ID-Zertifikat gefunden" >&2; exit 1; fi
-          echo "Signiere mit: $ID"
-          echo "MACOS_SIGN_IDENTITY=$ID" >> "$GITHUB_ENV"
-          printf '%s\n' "$P8" > "$RUNNER_TEMP/notary.p8"
-          echo "NOTARY_KEY=$RUNNER_TEMP/notary.p8" >> "$GITHUB_ENV"
+        run: ./scripts/macos-signing.sh setup
       - name: App bauen
         run: pyinstaller --noconfirm mailsync.spec
       - name: Selbsttest der fertigen App
@@ -148,22 +119,35 @@ jobs:
         run: |
           pip install cryptography==50.0.2
           python tests/e2e.py -- "dist/Christinas Mail-Sync.app/Contents/MacOS/Christinas Mail-Sync"
-      - name: DMG bauen (und notarisieren)
+      # Unsigniert: DMG nur zum Testen. Signiert: Die App wird bei Apple eingereicht und
+      # sofort gesichert. Den Rest (Ticket heften, DMG, Release) macht mac-release.yml,
+      # sobald Apple freigibt - egal ob nach Minuten oder Tagen.
+      - name: DMG bauen
+        if: env.SIGN != 'true'
+        run: ./scripts/package-macos.sh dmg
+      - name: Bei Apple einreichen
+        if: env.SIGN == 'true'
         env:
           NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
           NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER_ID }}
-        run: ./scripts/package-macos.sh
+        run: ./scripts/package-macos.sh submit
       - name: Signierdaten entfernen
         if: always() && env.SIGN == 'true'
-        run: |
-          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
-          rm -f "$RUNNER_TEMP/notary.p8"
+        run: ./scripts/macos-signing.sh cleanup
       - uses: actions/upload-artifact@v4
+        if: env.SIGN != 'true'
         with:
           name: macos
           path: dist/Christinas-Mail-Sync.dmg
+      - uses: actions/upload-artifact@v4
+        if: env.SIGN == 'true'
+        with:
+          name: macos-signed
+          path: dist/signed/
+          retention-days: 90
 
-  # Windows wird sofort veroeffentlicht; die DMG kommt dazu, sobald Apple notarisiert hat
+  # Windows wird sofort veroeffentlicht; die DMG haengt mac-release.yml an,
+  # sobald Apple die App freigegeben hat
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [windows]
@@ -178,21 +162,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" \
-            --notes "Downloads: Windows (Setup) und macOS für Apple-Chip (DMG). Anleitung siehe README." \
-            Christinas-Mail-Sync-Setup.exe
-
-  release-macos:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [macos, release]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: macos
-      - name: DMG zum Release hinzufügen
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" Christinas-Mail-Sync.dmg
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber Christinas-Mail-Sync-Setup.exe
+          else
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" \
+              --notes "Downloads: Windows (Setup) und macOS für Apple-Chip (DMG). Anleitung siehe README." \
+              Christinas-Mail-Sync-Setup.exe
+          fi

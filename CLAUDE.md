@@ -46,8 +46,11 @@ PYTHONPATH=src .venv/bin/python tests/e2e.py -- "dist/Christinas Mail-Sync.app/C
   `/usr/bin/perl` (5.34). Keine gepackte Einzeldatei (PAR::Packer), weil Apple die nicht signieren kann.
   `mailsync.spec` signiert jede Mach-O-Datei einzeln, dann die App: mit `MACOS_SIGN_IDENTITY`
   (Developer ID, Hardened Runtime, Zeitstempel), sonst ad hoc.
-- `scripts/package-macos.sh`: App notarisieren und heften, DMG bauen (`dmgbuild`, `installer/dmg-settings.py`,
-  Hintergrund aus `scripts/make-dmg-background.py`), DMG signieren, notarisieren, heften.
+- `scripts/package-macos.sh dmg|submit|finish`: `dmg` baut unsigniert nur die DMG (`dmgbuild`,
+  `installer/dmg-settings.py`, Hintergrund aus `scripts/make-dmg-background.py`). `submit` zippt die signierte
+  App nach `dist/signed/` und reicht sie bei Apple ein, ohne zu warten. `finish` fragt Apple; bei „Accepted“
+  Ticket heften, DMG bauen, signieren, notarisieren, heften. Notarisieren kann beim ersten Mal Tage dauern.
+- `scripts/macos-signing.sh setup|cleanup`: temporärer Schlüsselbund mit Zertifikat und `.p8`.
 - Windows: onedir-Build, daraus `installer/windows.iss` (Inno Setup) die `Christinas-Mail-Sync-Setup.exe`;
   installiert ohne Adminrechte nach `%LOCALAPPDATA%\Programs`.
 - Windows: offizielles `imapsync.exe` (`scripts/fetch-imapsync-windows.ps1`, Prüfsumme in `scripts/imapsync-version.sh`).
@@ -56,7 +59,12 @@ PYTHONPATH=src .venv/bin/python tests/e2e.py -- "dist/Christinas Mail-Sync.app/C
 
 - `build.yml`: Baut Windows (Setup wird still installiert, getestet und deinstalliert) und macOS (DMG),
   Unit-Tests, Selbsttest (imapsync + Schlüsselbund) und Ende-zu-Ende-Test der fertigen App mit GreenMail.
-  Bei Tags `v*` entsteht ein Release.
+  Bei Tags `v*` entsteht ein Release mit der Setup.exe. Signierte macOS-Builds reichen die App bei Apple
+  ein und sichern sie als Artifact `macos-signed` (90 Tage) – die eingereichte App geht so nie verloren.
+- `mac-release.yml`: nach jedem Build, alle 30 Minuten und von Hand. Sucht das neueste Release ohne DMG
+  (oder den angegebenen Build-Lauf), holt `macos-signed` und führt `package-macos.sh finish` aus. Prüft
+  Apple noch, endet der Lauf grün und der nächste versucht es wieder. Fertige DMG → ans Release.
+- `notary-status.yml` (manuell): zeigt die Notarisierungs-Einreichungen bei Apple mit Status.
 - Signieren/Notarisieren: Secrets in der GitHub-Umgebung `release` (nur Tags `v*` und `main`):
   `MACOS_CERT_P12` (base64), `MACOS_CERT_PASSWORD`, `NOTARY_KEY_P8`, `NOTARY_KEY_ID`, `NOTARY_ISSUER_ID`.
   Developer ID von Johannes Hoppe. Der macOS-Job nutzt die Umgebung nur bei Tags und beim Start von Hand.
