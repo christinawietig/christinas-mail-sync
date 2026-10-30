@@ -194,7 +194,7 @@ class SetupFrame(ttk.Frame):
                                                                     sticky="w", pady=(10, 4))
             for i, (label, var) in enumerate((("Server:", host), (user_label, user), ("Passwort:", password))):
                 ttk.Label(self, text=label).grid(row=row + 1 + i, column=0, sticky="w", padx=(0, 8))
-                e = ttk.Entry(self, textvariable=var, width=40, show="•" if var is password else "")
+                e = ttk.Entry(self, textvariable=var, width=46, show="•" if var is password else "")
                 e.grid(row=row + 1 + i, column=1, sticky="we", pady=2)
                 self.entries.append((var, e))
             row += 4
@@ -209,7 +209,7 @@ class SetupFrame(ttk.Frame):
         self.code_text.grid(row=row + 2, column=0, columnspan=2, sticky="we", pady=(4, 4))
         code_buttons = ttk.Frame(self)
         code_buttons.grid(row=row + 3, column=0, columnspan=2, sticky="we")
-        self.code_status = ttk.Label(code_buttons, text="", wraplength=280, justify="left")
+        self.code_status = ttk.Label(code_buttons, text="", wraplength=340, justify="left")
         self.code_status.pack(side="left")
         ttk.Button(code_buttons, text="Einfügen", command=self._paste).pack(side="right")
         self.copy_button = ttk.Button(code_buttons, text="Kopieren", command=self._copy)
