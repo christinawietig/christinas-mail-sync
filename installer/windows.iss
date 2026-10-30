@@ -1,5 +1,5 @@
 ; Inno-Setup-Skript fuer die Windows-Installation (setup.exe).
-; Bauen:  iscc /DAppVersion=1.0.0 installer\windows.iss
+; Bauen:  iscc /DAppVersion=1.2.3 installer\windows.iss
 ; Vorher: pyinstaller mailsync.spec  (-> dist\Christinas Mail-Sync\)
 ;
 ; Installiert ohne Administratorrechte fuer den angemeldeten Benutzer

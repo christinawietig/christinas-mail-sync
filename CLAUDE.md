@@ -60,7 +60,9 @@ PYTHONPATH=src .venv/bin/python tests/e2e.py -- "dist/Christinas Mail-Sync.app/C
 
 ## GitHub Actions
 
-- `build.yml`: Baut Windows (Setup wird still installiert, getestet und deinstalliert) und macOS (DMG),
+- `build.yml`: Baut Windows (Update-Test: die veröffentlichte Version wird installiert und eingerichtet, die neue
+  drüberinstalliert, `--check-setup` prüft Einstellungen, Passwörter und den Apps-Eintrag; danach Selbsttest,
+  Ende-zu-Ende-Test und Deinstallation) und macOS (DMG),
   Unit-Tests, Selbsttest (imapsync + Schlüsselbund) und Ende-zu-Ende-Test der fertigen App mit GreenMail.
   Bei Tags `v*` entsteht ein Release mit der Setup.exe. Signierte macOS-Builds reichen die DMG bei Apple
   ein und sichern sie als Artifact `macos-signed` (90 Tage) – die eingereichte DMG geht so nie verloren.

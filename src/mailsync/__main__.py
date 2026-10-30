@@ -47,12 +47,31 @@ def headless_sync(out_path):
     sys.exit(0 if events[0]["kind"] == "done" else 1)
 
 
+def check_setup(out_path):
+    """Fuer den Update-Test: Findet die App Einstellungen und Passwoerter? Schreibt
+    die Einstellungen und je Postfach nur, OB ein Passwort da ist - nie das Passwort."""
+    from dataclasses import asdict
+    from mailsync import __version__, config, credentials
+    s = config.load_settings()
+    result = {
+        "version": __version__,
+        "settings": asdict(s),
+        "source_password": credentials.get_password(s.source_host, s.source_user) is not None,
+        "target_password": credentials.get_password(s.target_host, s.target_user) is not None,
+    }
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2)
+    sys.exit(0)
+
+
 def run():
     # Die Windows-App hat keine Konsole, daher gehen die Ausgaben in eine Datei
     if len(sys.argv) == 5 and sys.argv[1] == "--selftest":
         selftest(*sys.argv[2:])
     if len(sys.argv) == 3 and sys.argv[1] == "--sync-headless":
         headless_sync(sys.argv[2])
+    if len(sys.argv) == 3 and sys.argv[1] == "--check-setup":
+        check_setup(sys.argv[2])
     from mailsync.gui import main
     main()
 

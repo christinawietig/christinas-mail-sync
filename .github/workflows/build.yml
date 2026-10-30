@@ -50,6 +50,27 @@ jobs:
           $version = python -c "import sys; sys.path.insert(0, 'src'); import mailsync; print(mailsync.__version__)"
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" installer\windows.iss
           if ($LASTEXITCODE -ne 0) { exit 1 }
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      # Update-Test: Wie bei den Kollegen liegt die veroeffentlichte Version schon eingerichtet
+      # auf dem Rechner (Einstellungen + Passwoerter). Die neue wird danach drueberinstalliert.
+      - name: Veroeffentlichte Version installieren und einrichten
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: src
+        run: |
+          $tag = gh release view --repo $env:GITHUB_REPOSITORY --json tagName -q .tagName 2>$null
+          if (-not $tag) { Write-Host "Noch kein Release - kein Update-Test"; exit 0 }
+          gh release download $tag --repo $env:GITHUB_REPOSITORY -p Christinas-Mail-Sync-Setup.exe -D old
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $p = Start-Process -FilePath "old\Christinas-Mail-Sync-Setup.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Write-Error "$tag liess sich nicht installieren"; exit 1 }
+          # Einrichten wie die App selbst: settings.json in %APPDATA%, Passwoerter in der
+          # Anmeldeinformationsverwaltung (nur Testwerte mit example.org)
+          python -c "from mailsync import config, credentials as c; s = config.Settings(source_host='alt.example.org', source_user='update-test@example.org', target_host='neu.example.org', target_user='update-test', exclude_folders=['INBOX.Trash'], target_user_rule='localpart'); config.save_settings(s); c.set_password(s.source_host, s.source_user, 'pw1'); c.set_password(s.target_host, s.target_user, 'pw2')"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Write-Host "Update-Test von $tag"
+          "UPGRADE_FROM=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Setup testen (still installieren)
         shell: pwsh
         run: |
@@ -59,6 +80,30 @@ jobs:
           if (-not (Test-Path $exe)) { Write-Error "nicht installiert: $exe"; exit 1 }
           if (-not (Test-Path "$env:USERPROFILE\Desktop\Christinas Mail-Sync.lnk")) { Write-Error "kein Desktop-Symbol"; exit 1 }
           "INSTALLED_EXE=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Update pruefen (Einstellungen und Passwoerter noch da?)
+        if: env.UPGRADE_FROM != ''
+        shell: pwsh
+        env:
+          PYTHONPATH: src
+        run: |
+          $p = Start-Process -FilePath $env:INSTALLED_EXE -ArgumentList '--check-setup', 'check.json' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Write-Error "--check-setup fehlgeschlagen"; exit 1 }
+          $c = Get-Content check.json | ConvertFrom-Json
+          $fail = @()
+          if ($c.version -ne $env:APP_VERSION) { $fail += "App-Version $($c.version) statt $env:APP_VERSION" }
+          if ($c.settings.source_user -ne 'update-test@example.org' -or $c.settings.target_host -ne 'neu.example.org' `
+              -or $c.settings.exclude_folders[0] -ne 'INBOX.Trash') { $fail += "Einstellungen verloren" }
+          if (-not $c.source_password -or -not $c.target_password) { $fail += "Passwoerter verloren" }
+          # Genau ein Eintrag unter "Apps", mit der neuen Version
+          $entries = @(Get-ChildItem HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall |
+            Get-ItemProperty | Where-Object { $_.DisplayName -eq 'Christinas Mail-Sync' })
+          if ($entries.Count -ne 1) { $fail += "$($entries.Count) Eintraege unter Apps statt 1" }
+          elseif ($entries[0].DisplayVersion -ne $env:APP_VERSION) { $fail += "Apps zeigt Version $($entries[0].DisplayVersion)" }
+          if ($fail) { $fail | ForEach-Object { Write-Error $_ }; exit 1 }
+          Write-Host "Update von ${env:UPGRADE_FROM} auf ${env:APP_VERSION}: Einstellungen, Passwoerter und Apps-Eintrag OK"
+          # Testdaten wieder entfernen
+          python -c "from mailsync import config, credentials as c; s = config.load_settings(); c.delete_password(s.source_host, s.source_user); c.delete_password(s.target_host, s.target_user)"
+          Remove-Item -Force "$env:APPDATA\Christinas Mail-Sync\settings.json"
       - name: Selbsttest der installierten App
         shell: pwsh
         run: |
