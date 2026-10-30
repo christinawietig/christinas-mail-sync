@@ -100,6 +100,11 @@ def main():
         app.frame.on_event("done", {"result": Result(transferred=37)})
         return "3-fertig"
 
+    @step
+    def about():
+        run.dialog = gui.AboutDialog(app)
+        return "4-ueber"
+
     def run(i=0):
         if i > 0:
             capture(run.window, os.path.join(out, "%s-%s.png" % (PLATFORM, run.name)))
@@ -107,9 +112,9 @@ def main():
             root.destroy()
             return
         run.name = steps[i]()
-        run.window = root
-        root.lift()
-        root.focus_force()
+        run.window = getattr(run, "dialog", None) or root
+        run.window.lift()
+        run.window.focus_force()
         root.after(1200, lambda: run(i + 1))
 
     root.after(300, run)

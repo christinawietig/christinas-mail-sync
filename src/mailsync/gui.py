@@ -8,19 +8,24 @@ import tkinter as tk
 from dataclasses import asdict
 from tkinter import ttk
 
-from . import APP_NAME, config, credentials, plan, setupcode
+from . import APP_NAME, __version__, config, credentials, plan, setupcode
 from .sync import Sync, describe_error
 
 PAD = 20
-RED, GREEN, GREY = "#b00020", "#1b7f3b", "#6b6b6b"
+RED, GREEN, GREY, LINK = "#b00020", "#1b7f3b", "#6b6b6b", "#1a5fd0"
+REPO_URL = "https://github.com/christinawietig/christinas-mail-sync"
 # Feste Zeichenbreite fuer den Einrichtungscode
 MONO = ("Menlo", 12) if sys.platform == "darwin" else ("Consolas", 11) if sys.platform == "win32" else ("Courier", 11)
 
 
-def asset(name):
-    """Datei aus assets/ (im App-Paket bzw. im Quelltext)."""
+def bundled(*parts):
+    """Mitgelieferte Datei (im App-Paket bzw. im Quelltext)."""
     base = getattr(sys, "_MEIPASS", os.path.join(os.path.dirname(__file__), "..", ".."))
-    return os.path.join(base, "assets", name)
+    return os.path.join(base, *parts)
+
+
+def asset(name):
+    return bundled("assets", name)
 
 
 def open_path(path):
@@ -54,6 +59,12 @@ class App:
         self.frame = None
         self.sync = None
         self.settings = config.load_settings()
+        # macOS: Menue "Christinas Mail-Sync" -> "Über Christinas Mail-Sync"
+        if sys.platform == "darwin":
+            self.root.createcommand("tkAboutDialog", self.show_about)
+
+    def show_about(self):
+        AboutDialog(self)
 
     def run(self):
         pw = self._passwords()
@@ -164,11 +175,12 @@ class SetupFrame(ttk.Frame):
         self.message = ttk.Label(self, text="", foreground=RED, wraplength=440, justify="left")
         self.message.grid(row=row, column=0, columnspan=2, sticky="w", pady=(8, 0))
         buttons = ttk.Frame(self)
-        buttons.grid(row=row + 1, column=0, columnspan=2, sticky="e", pady=(12, 0))
-        if all(pw):
-            ttk.Button(buttons, text="Abbrechen", command=self._cancel).pack(side="left", padx=(0, 8))
+        buttons.grid(row=row + 1, column=0, columnspan=2, sticky="we", pady=(12, 0))
+        ttk.Button(buttons, text="Über …", command=app.show_about).pack(side="left")
         self.save_button = ttk.Button(buttons, text="Prüfen und speichern", command=self._save, default="active")
-        self.save_button.pack(side="left")
+        self.save_button.pack(side="right")
+        if all(pw):
+            ttk.Button(buttons, text="Abbrechen", command=self._cancel).pack(side="right", padx=(0, 8))
         app.root.bind("<Return>", lambda e: self._save())
 
         for var in (self.source_host, self.source_user, self.target_host, self.target_user):
@@ -324,6 +336,7 @@ class SyncFrame(ttk.Frame):
         buttons.pack(fill="x", pady=(14, 0))
         self.setup_button = ttk.Button(buttons, text="Einstellungen", command=app.show_setup)
         self.log_button = ttk.Button(buttons, text="Protokoll öffnen", command=self._open_log)
+        self.about_button = ttk.Button(buttons, text="Über …", command=app.show_about)
         self.main_button = ttk.Button(buttons, text="Stopp", command=self._main)
         self.main_button.pack(side="right")
 
@@ -383,8 +396,66 @@ class SyncFrame(ttk.Frame):
         self.setup_button.pack(side="left")
         if not ok:
             self.log_button.pack(side="left", padx=(8, 0))
+        self.about_button.pack(side="left", padx=(8, 0))
         self.app.root.bell()
         self.app.root.lift()
+
+
+class AboutDialog(tk.Toplevel):
+    """Wer die App gemacht hat, Lizenz mit vollstaendigem Haftungsausschluss."""
+
+    def __init__(self, app):
+        super().__init__(app.root)
+        self.title("Über " + APP_NAME)
+        self.resizable(False, False)
+        self.transient(app.root)
+        f = ttk.Frame(self, padding=PAD)
+        f.pack(fill="both", expand=True)
+
+        head = ttk.Frame(f)
+        head.pack(fill="x")
+        try:
+            self._icon = tk.PhotoImage(file=asset("MailSync-256.png")).subsample(4)
+            ttk.Label(head, image=self._icon).pack(side="left", padx=(0, 14))
+        except tk.TclError:
+            pass
+        text = ttk.Frame(head)
+        text.pack(side="left", anchor="n")
+        ttk.Label(text, text=APP_NAME, font=("", 15, "bold")).pack(anchor="w")
+        ttk.Label(text, text="Version " + __version__, foreground=GREY).pack(anchor="w")
+        ttk.Label(text, text="Ein privates Projekt von Christina Wietig").pack(anchor="w", pady=(6, 0))
+        link = ttk.Label(text, text=REPO_URL.replace("https://", ""), foreground=LINK, cursor="hand2")
+        link.pack(anchor="w")
+        link.bind("<Button-1>", lambda e: open_path(REPO_URL))
+
+        ttk.Label(f, text="Nutzung auf eigene Gefahr: Die Software wird ohne jede Gewährleistung und ohne "
+                          "Haftung bereitgestellt. Maßgeblich ist die folgende Lizenz.",
+                  wraplength=520, justify="left", font=("", 12, "bold")).pack(anchor="w", pady=(16, 6))
+        box = ttk.Frame(f)
+        box.pack(fill="both")
+        lic = tk.Text(box, height=16, width=74, wrap="word", relief="solid", borderwidth=1,
+                      highlightthickness=0, font=MONO, padx=8, pady=6)
+        scroll = ttk.Scrollbar(box, command=lic.yview)
+        lic.configure(yscrollcommand=scroll.set)
+        lic.pack(side="left", fill="both")
+        scroll.pack(side="right", fill="y")
+        try:
+            with open(bundled("LICENSE"), encoding="utf-8") as fh:
+                lic.insert("1.0", fh.read())
+        except OSError:
+            lic.insert("1.0", "MIT License – siehe " + REPO_URL + "/blob/main/LICENSE")
+        lic.configure(state="disabled")
+
+        third = ttk.Label(f, text="Mitgelieferte Software (u. a. imapsync) und ihre Lizenzen",
+                          foreground=LINK, cursor="hand2")
+        third.pack(anchor="w", pady=(8, 0))
+        third.bind("<Button-1>", lambda e: open_path(REPO_URL + "/blob/main/THIRD_PARTY.md"))
+        ttk.Button(f, text="Schließen", command=self.destroy, default="active").pack(anchor="e", pady=(12, 0))
+        self.bind("<Escape>", lambda e: self.destroy())
+        self.update_idletasks()
+        x = app.root.winfo_rootx() + (app.root.winfo_width() - self.winfo_reqwidth()) // 2
+        self.geometry("+%d+%d" % (max(x, 0), max(app.root.winfo_rooty() - 40, 20)))
+        self.grab_set()
 
 
 def main():
