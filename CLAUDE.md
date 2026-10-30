@@ -85,6 +85,32 @@ PYTHONPATH=src .venv/bin/python tests/e2e.py -- "dist/Christinas Mail-Sync.app/C
   zusammensetzen (macOS links, Windows rechts, gleich hoch, ein Bild – sonst bricht GitHub sie um).
   macOS-Aufnahmen mit echtem Fensterschatten, Windows bekommt einen passenden nachgebauten.
 
+## Release
+
+Nur nach ausdrücklichem Okay von Christina.
+
+1. **Version erhöhen:** `__version__` in `src/mailsync/__init__.py` (die einzige Stelle; Info.plist, Setup.exe,
+   App-exe und DMG-Name übernehmen sie beim Bauen). Commit „Version X.Y.Z“, auf `main` pushen.
+2. **Build auf `main` abwarten, alles grün:** Unit-Tests, Selbsttest (inkl. Update-Abfrage), Windows-Update-Test
+   (veröffentlichte Version → neue drüber), Ende-zu-Ende-Test auf beiden Systemen, `lint`.
+   Weitere Pushes auf `main` brechen den laufenden Build ab – erst warten, dann taggen.
+3. **Taggen:** `git tag vX.Y.Z <commit> && git push origin vX.Y.Z`. Der Build läuft für den Tag noch einmal komplett.
+4. **Windows:** Der Job `release` legt das Release mit `Christinas-Mail-Sync-Setup.exe` an (ca. 10 Minuten).
+5. **Mac:** Der Build reicht die signierte DMG bei Apple ein (Artifact `macos-signed`). „Mac-Release abschliessen“
+   startet danach, wartet bis zu 30 Minuten und hängt die DMG nach der Freigabe ans Release. Dauert Apple länger,
+   fragt der 30-Minuten-Takt nach – der fällt bei GitHub aber manchmal stundenlang aus, dann von Hand starten
+   (`gh workflow run mac-release.yml`). Status bei Apple: `gh workflow run notary-status.yml`.
+6. **Prüfen:** `gh release view vX.Y.Z` zeigt beide Dateien; beide README-Links liefern HTTP 200:
+   `curl -sIL https://github.com/christinawietig/christinas-mail-sync/releases/latest/download/Christinas-Mail-Sync.dmg`
+   (ebenso `…-Setup.exe`).
+7. **Screenshots** nur bei sichtbaren Änderungen neu machen (`screenshots.yml`, siehe oben) – am besten vor dem Taggen.
+
+- Die Dateinamen bleiben immer gleich, nur so zeigen die README-Links und der Update-Hinweis in der App
+  (`/releases/latest/download/<Datei>`) auf die neueste Version. Die Version steht in den Dateien selbst.
+- Sobald das Release „Latest“ ist, zeigen alle installierten Apps ab 1.0.2 beim Start den Update-Hinweis.
+- Einen veröffentlichten Tag nie verschieben oder neu bauen: Die Dateien sind schon im Umlauf.
+  Bei einem Fehler stattdessen eine neue Patch-Version (X.Y.Z+1).
+
 ## Offene Punkte
 
 - Die Windows-Setup.exe ist nicht signiert: SmartScreen warnt beim ersten Start.
