@@ -13,8 +13,7 @@ Kopiert Mails vom alten Postfach ins neue. Jede Mail genau einmal, so oft man wi
 ## Installieren
 
 **Mac:** Öffne die heruntergeladene Datei und ziehe **Christinas Mail-Sync** auf den Ordner **Programme**.
-Starte die App dann aus „Programme“. Damit sie im Dock bleibt: im Dock auf das Symbol
-rechtsklicken → **Optionen** → **Im Dock behalten**.
+Starte die App dann aus „Programme“. Beim ersten Start legt sie sich selbst ins Dock.
 
 **Windows:** Öffne die heruntergeladene Datei. Falls „Der Computer wurde durch Windows geschützt“
 erscheint: **Weitere Informationen** → **Trotzdem ausführen**. Folge dann den Schritten.
