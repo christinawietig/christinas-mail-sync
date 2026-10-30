@@ -205,7 +205,7 @@ class SetupFrame(ttk.Frame):
         ttk.Label(self, text="Diese Einstellungen ohne Passwörter – zum Weitergeben an Kollegen und Kolleginnen.",
                   foreground=GREY).grid(row=row + 1, column=0, columnspan=2, sticky="w")
         self.code_text = tk.Text(self, height=4, width=50, wrap="char", relief="solid", borderwidth=1,
-                                 highlightthickness=0, font=MONO, state="disabled")
+                                 highlightthickness=0, font=MONO, padx=6, pady=4, state="disabled")
         self.code_text.grid(row=row + 2, column=0, columnspan=2, sticky="we", pady=(4, 4))
         code_buttons = ttk.Frame(self)
         code_buttons.grid(row=row + 3, column=0, columnspan=2, sticky="we")
