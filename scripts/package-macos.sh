@@ -27,18 +27,25 @@ if [ -n "${NOTARY_KEY:-}" ]; then
   fi
 fi
 
+nt() { xcrun notarytool "$@" --key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER"; }
+
 notarize() {
-  # notarytool meldet "Invalid" nicht ueber den Rueckgabewert, daher Status pruefen
-  local out id
-  out=$(xcrun notarytool submit "$1" --key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" \
-        --issuer "$NOTARY_ISSUER" --wait --output-format json)
+  # Ohne --wait einreichen und selbst nachfragen: Apple braucht beim ersten Mal
+  # Stunden, und ein kurzer Netzaussetzer am Runner soll den Build nicht abbrechen.
+  local out id status
+  out=$(nt submit "$1" --output-format json)
   echo "$out"
   id=$(echo "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
-  if ! echo "$out" | grep -q '"status" *: *"Accepted"'; then
-    xcrun notarytool log "$id" --key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER"
-    echo "Notarisierung abgelehnt: $1" >&2
-    exit 1
-  fi
+  while :; do
+    status=$(nt info "$id" --output-format json 2>/dev/null \
+             | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])' 2>/dev/null || echo "?")
+    echo "$(date -u +%H:%M) $id: $status"
+    case "$status" in
+      Accepted) return 0 ;;
+      Invalid|Rejected) nt log "$id"; echo "Notarisierung abgelehnt: $1" >&2; exit 1 ;;
+    esac
+    sleep 60
+  done
 }
 
 if [ -n "${NOTARY_KEY:-}" ]; then
