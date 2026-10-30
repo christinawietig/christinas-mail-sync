@@ -16,6 +16,18 @@ permissions:
   contents: read
 
 jobs:
+  # Workflows und Shell-Skripte statisch pruefen (actionlint ruft dabei shellcheck auf)
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Workflows pruefen
+        uses: docker://rhysd/actionlint:1.7.7
+        with:
+          args: -color
+      - name: Shell-Skripte pruefen
+        run: shellcheck -S warning scripts/*.sh
+
   windows:
     runs-on: windows-latest
     steps:
@@ -119,13 +131,13 @@ jobs:
         run: |
           pip install cryptography==50.0.2
           python tests/e2e.py -- "dist/Christinas Mail-Sync.app/Contents/MacOS/Christinas Mail-Sync"
-      # Unsigniert: DMG nur zum Testen. Signiert: Die App wird bei Apple eingereicht und
-      # sofort gesichert. Den Rest (Ticket heften, DMG, Release) macht mac-release.yml,
+      # Unsigniert: DMG nur zum Testen. Signiert: Die DMG wird bei Apple eingereicht und
+      # sofort gesichert. Ticket anheften und veroeffentlichen macht mac-release.yml,
       # sobald Apple freigibt - egal ob nach Minuten oder Tagen.
       - name: DMG bauen
         if: env.SIGN != 'true'
         run: ./scripts/package-macos.sh dmg
-      - name: Bei Apple einreichen
+      - name: DMG bauen und bei Apple einreichen
         if: env.SIGN == 'true'
         env:
           NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}

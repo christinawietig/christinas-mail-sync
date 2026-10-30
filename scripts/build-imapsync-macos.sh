@@ -31,16 +31,22 @@ cp -R "$(brew --prefix openssl@3)/include" "$SSL/"
 cp "$(brew --prefix openssl@3)"/lib/lib{ssl,crypto}.a "$SSL/lib/"
 
 echo "== Perl-Module"
-curl -fsSL -o "$WORK/cpanm" https://cpanmin.us
+# cpanm und alle Module mit fester Version: Jeder Build eines Tags enthaelt denselben Code
+curl -fsSL -o "$WORK/cpanm" "https://raw.githubusercontent.com/miyagawa/cpanminus/$CPANM_VERSION/cpanm"
+echo "$CPANM_SHA256  $WORK/cpanm" | shasum -a 256 -c -
 LOCAL="$WORK/local"
 export PERL5LIB="$LOCAL/lib/perl5" PATH="$LOCAL/bin:$PATH"
 cpanm() { "$PERL" "$WORK/cpanm" -q --notest -l "$LOCAL" "$@"; }
 # Eigenes Net::SSLeay (statisch gegen OpenSSL 3) statt Apples Version gegen /usr/lib/libssl
-OPENSSL_PREFIX="$SSL" cpanm --reinstall Net::SSLeay IO::Socket::SSL
-cpanm Encode::IMAPUTF7 IO::Tee Mail::IMAPClient Unicode::String Readonly Sys::MemInfo \
-      File::Tail File::Copy::Recursive Digest::HMAC_SHA1 Regexp::Common Term::ReadKey
+OPENSSL_PREFIX="$SSL" cpanm --reinstall Net::SSLeay@1.96 IO::Socket::SSL@2.099
+cpanm Encode::IMAPUTF7@1.07 IO::Tee@0.65 Mail::IMAPClient@3.43 Unicode::String@2.10 Readonly@2.05 \
+      Sys::MemInfo@0.99 File::Tail@1.3 File::Copy::Recursive@0.45 Digest::HMAC_SHA1@1.05 \
+      Regexp::Common@2024080801 Term::ReadKey@2.38
 
-if otool -L "$LOCAL"/lib/perl5/darwin-thread-multi-2level/auto/Net/SSLeay/SSLeay.bundle | grep -q libssl; then
+BUNDLE="$LOCAL/lib/perl5/darwin-thread-multi-2level/auto/Net/SSLeay/SSLeay.bundle"
+[ -f "$BUNDLE" ] || { echo "Net::SSLeay nicht gefunden: $BUNDLE" >&2; exit 1; }
+LINKS=$(otool -L "$BUNDLE")
+if grep -q libssl <<< "$LINKS"; then
   echo "Net::SSLeay haengt noch an einer libssl-Bibliothek - abgebrochen." >&2
   exit 1
 fi

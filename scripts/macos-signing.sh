@@ -3,6 +3,7 @@
 #
 #   macos-signing.sh setup    braucht P12 (base64), P12_PASSWORD, P8; schreibt
 #                             MACOS_SIGN_IDENTITY und NOTARY_KEY nach $GITHUB_ENV
+#   macos-signing.sh notary-key   nur den Apple-API-Schluessel (P8) einrichten -> NOTARY_KEY
 #   macos-signing.sh cleanup
 #
 # Gibt nie geheime Werte aus, nur Anzahl und oeffentlichen Namen des Zertifikats.
@@ -32,10 +33,14 @@ case "${1:-}" in
     rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/cert-classic.p12"
     security set-key-partition-list -S apple-tool:,apple: -s -k "$KC_PW" "$KC" >/dev/null
     security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
-    ID=$(security find-identity -v -p codesigning "$KC" | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"')
+    ID=$(security find-identity -v -p codesigning "$KC" | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"' || true)
     if [ -z "$ID" ]; then echo "Kein Developer-ID-Zertifikat gefunden" >&2; exit 1; fi
     echo "Signiere mit: $ID"
     echo "MACOS_SIGN_IDENTITY=$ID" >> "$GITHUB_ENV"
+    "$0" notary-key
+    ;;
+  notary-key)
+    : "${P8:?P8 fehlt}"
     (umask 077; printf '%s\n' "$P8" > "$RUNNER_TEMP/notary.p8")
     echo "NOTARY_KEY=$RUNNER_TEMP/notary.p8" >> "$GITHUB_ENV"
     ;;
@@ -44,7 +49,7 @@ case "${1:-}" in
     rm -f "$RUNNER_TEMP/notary.p8" "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/cert-classic.p12" "$RUNNER_TEMP/cert.pem"
     ;;
   *)
-    echo "Aufruf: $0 setup|cleanup" >&2
+    echo "Aufruf: $0 setup|notary-key|cleanup" >&2
     exit 2
     ;;
 esac

@@ -5,7 +5,8 @@ $root = Split-Path -Parent $PSScriptRoot
 $cfg = Get-Content (Join-Path $PSScriptRoot "imapsync-version.sh") | Where-Object { $_ -match '^IMAPSYNC_(VERSION|SHA256)=' }
 $version = ($cfg | Where-Object { $_ -match 'VERSION' }) -replace '.*=', ''
 $sha256 = ($cfg | Where-Object { $_ -match 'SHA256' }) -replace '.*=', ''
-$url = "https://imapsync.lamiral.info/dist/imapsync_$version.zip"
+# Das Archiv old_releases/ behaelt jede Version; dist/ nur die neueste
+$url = "https://imapsync.lamiral.info/dist/old_releases/$version/imapsync_$version.zip"
 
 $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("imapsync-" + [guid]::NewGuid())
 New-Item -ItemType Directory $tmp | Out-Null

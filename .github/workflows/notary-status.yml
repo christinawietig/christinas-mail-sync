@@ -1,19 +1,23 @@
 # Zeigt, was Apple mit den eingereichten Notarisierungen macht (nur IDs und Status).
 name: Notarisierung pruefen
 on: workflow_dispatch
+permissions:
+  contents: read
 jobs:
   status:
     runs-on: macos-latest
     environment: release
     steps:
-      - name: Status bei Apple abfragen
+      - uses: actions/checkout@v4
+      - name: Apple-Schluessel einrichten
         env:
           P8: ${{ secrets.NOTARY_KEY_P8 }}
-          KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
-          ISSUER: ${{ secrets.NOTARY_ISSUER_ID }}
-        run: |
-          printf '%s' "$P8" > "$RUNNER_TEMP/k.p8"
-          xcrun notarytool history --key "$RUNNER_TEMP/k.p8" \
-            --key-id "$(printf '%s' "$KEY_ID" | tr -d '[:space:]')" \
-            --issuer "$(printf '%s' "$ISSUER" | tr -d '[:space:]')"
-          rm -f "$RUNNER_TEMP/k.p8"
+        run: ./scripts/macos-signing.sh notary-key
+      - name: Status bei Apple abfragen
+        env:
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: ./scripts/package-macos.sh history
+      - name: Schluessel entfernen
+        if: always()
+        run: ./scripts/macos-signing.sh cleanup
