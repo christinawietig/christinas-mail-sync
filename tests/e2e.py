@@ -103,7 +103,8 @@ def start_greenmail(java, jar, keystore, port, tmp):
         try:
             login("alt").logout()
             return proc
-        except OSError:
+        except (OSError, imaplib.IMAP4.error):
+            # Der Server nimmt schon Verbindungen an, bevor die Testkonten angelegt sind
             if proc.poll() is not None:
                 break
             time.sleep(0.5)
