@@ -106,8 +106,16 @@ jobs:
           security set-keychain-settings -lut 3600 "$KC"
           security unlock-keychain -p "$KC_PW" "$KC"
           echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign
-          rm -f "$RUNNER_TEMP/cert.p12"
+          # Neuere macOS exportieren .p12 mit AES/SHA-256, das "security" hier nicht immer
+          # liest ("MAC verification failed"). Mit OpenSSL pruefen und klassisch neu verpacken.
+          OPENSSL="$(brew --prefix openssl@3)/bin/openssl"
+          "$OPENSSL" pkcs12 -in "$RUNNER_TEMP/cert.p12" -noout -passin env:P12_PASSWORD \
+            || { echo "Passwort passt nicht zur .p12-Datei (laut OpenSSL)" >&2; exit 1; }
+          "$OPENSSL" pkcs12 -in "$RUNNER_TEMP/cert.p12" -nodes -passin env:P12_PASSWORD \
+            | "$OPENSSL" pkcs12 -export -passout env:P12_PASSWORD -out "$RUNNER_TEMP/cert-classic.p12" \
+                -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1
+          security import "$RUNNER_TEMP/cert-classic.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/cert-classic.p12"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KC_PW" "$KC" >/dev/null
           security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
           ID=$(security find-identity -v -p codesigning "$KC" | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"')
