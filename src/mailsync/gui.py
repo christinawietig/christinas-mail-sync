@@ -385,9 +385,6 @@ class SyncFrame(ttk.Frame):
         self.headline.pack(anchor="w")
         self.detail = ttk.Label(self, text="Verbinde mit den Servern …", wraplength=420, justify="left")
         self.detail.pack(anchor="w", pady=(4, 10))
-        # Vorschau beim ersten Lauf: neue Mails je Ordner
-        self.preview = tk.Text(self, height=8, width=52, relief="solid", borderwidth=1, highlightthickness=0,
-                               padx=8, pady=6, wrap="none")
         self.bar = ttk.Progressbar(self, mode="indeterminate", length=420)
         self.bar.pack(fill="x")
         self.bar.start(15)
@@ -395,6 +392,8 @@ class SyncFrame(ttk.Frame):
         self.eta.pack(anchor="w", pady=(4, 0))
         # Nach Fehlern: wie man das Protokoll weitergibt
         self.help = ttk.Label(self, text=HELP_TEXT, wraplength=420, justify="left")
+        # Texte so breit umbrechen wie das Fenster (die Knoepfe koennen es breiter machen)
+        self.bind("<Configure>", self._rewrap)
 
         buttons = ttk.Frame(self)
         buttons.pack(fill="x", pady=(10, 0))
@@ -409,6 +408,12 @@ class SyncFrame(ttk.Frame):
         app.sync = Sync(app.settings, source_pw, target_pw, app.post)
         self.log_path = app.sync.log_path
         app.sync.start()
+
+    def _rewrap(self, event):
+        width = max(event.width - 2 * PAD, 420)
+        for label in (self.detail, self.help):
+            if int(label["wraplength"]) != width:
+                label.configure(wraplength=width)
 
     def _open_log(self):
         open_path(self.log_path)
@@ -432,7 +437,7 @@ class SyncFrame(ttk.Frame):
     def _start(self):
         """Vorschau bestaetigt: jetzt uebertragen."""
         self.previewing = False
-        self.preview.pack_forget()
+        self.bar.pack(fill="x", before=self.eta)
         self.cancel_button.pack_forget()
         self.main_button.configure(text="Stopp", command=self._main, default="normal")
         self.headline.configure(text="Mail-Sync läuft …")
@@ -443,7 +448,7 @@ class SyncFrame(ttk.Frame):
         if kind == "status":
             self.detail.configure(text=data["text"])
         elif kind == "preview":
-            self._show_preview(data["total"], data["folders"])
+            self._show_preview(data["total"])
         elif kind == "planned":
             self.total = data["total"]
             self.bar.stop()
@@ -473,19 +478,12 @@ class SyncFrame(ttk.Frame):
         elif kind == "error":
             self._finish("Der Mail-Sync ist fehlgeschlagen.", data["text"], ok=False)
 
-    def _show_preview(self, total, folders):
+    def _show_preview(self, total):
         self.previewing = True
         self.bar.stop()
         self.bar.pack_forget()
         self.headline.configure(text="Bereit zum Übertragen")
-        self.detail.configure(text="%s neue Mail(s) in %d Ordner(n). Es wird nur kopiert, im alten Postfach "
-                                   "bleibt alles, wie es ist." % (format_count(total), len(folders)))
-        self.preview.configure(state="normal", height=min(max(len(folders), 3), 10))
-        width = max(len(plan.folder_label(f)) for f, _ in folders) + 2
-        for f, n in folders:
-            self.preview.insert("end", "%-*s%8s\n" % (width, plan.folder_label(f), format_count(n)))
-        self.preview.configure(state="disabled", font=MONO)
-        self.preview.pack(fill="x", before=self.eta)
+        self.detail.configure(text="%s neue Mail(s) werden ins neue Postfach kopiert." % format_count(total))
         self.main_button.configure(text="Übertragen", command=self._start, default="active")
         self.cancel_button.pack(side="right", padx=(0, 8))
         self.app.root.bind("<Return>", lambda e: self._start())
@@ -505,7 +503,6 @@ class SyncFrame(ttk.Frame):
 
     def _finish(self, title, text, ok):
         self.app.root.unbind("<Return>")
-        self.preview.pack_forget()
         self.cancel_button.pack_forget()
         if not self.bar.winfo_ismapped():
             self.bar.pack(fill="x", before=self.eta)

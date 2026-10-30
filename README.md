@@ -29,7 +29,7 @@ Beim ersten Start öffnen sich die Einstellungen:
 
 Ab dann genügt ein Doppelklick auf die App.
 
-Beim allerersten Sync zeigt die App erst, wie viele Mails aus welchem Ordner kommen.
+Beim allerersten Sync zeigt die App erst, wie viele Mails sie kopieren wird.
 Mit **Übertragen** geht es los, mit **Abbrechen** passiert nichts.
 
 <p align="center">

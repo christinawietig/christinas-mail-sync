@@ -110,9 +110,7 @@ def main():
     def preview():
         # Erster Lauf: Vorschau vor dem Uebertragen
         app.show_sync("", "")
-        app.frame.on_event("preview", {"total": 1655, "folders": [
-            ("INBOX", 1243), ("INBOX.Klasse 7b", 214), ("Elternbriefe &AMQ-", 37),
-            ("Gesendet", 161)]})
+        app.frame.on_event("preview", {"total": 1655, "folders": []})
         return "5-vorschau"
 
     @step

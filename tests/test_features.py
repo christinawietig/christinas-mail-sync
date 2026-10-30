@@ -60,20 +60,6 @@ class UpdateTest(unittest.TestCase):
             self.assertIsNone(update.check())
 
 
-class FolderLabelTest(unittest.TestCase):
-    def test_decode_imap_utf7(self):
-        self.assertEqual(plan.decode_folder("Elternbriefe &AMQ-"), "Elternbriefe Ä")
-        self.assertEqual(plan.decode_folder("Entw&APw-rfe"), "Entwürfe")
-        self.assertEqual(plan.decode_folder("A &- B"), "A & B")
-        self.assertEqual(plan.decode_folder("Normal"), "Normal")
-
-    def test_inbox_is_posteingang(self):
-        self.assertEqual(plan.folder_label("INBOX"), "Posteingang")
-        self.assertEqual(plan.folder_label("INBOX.Klasse 7b"), "Posteingang / Klasse 7b")
-        self.assertEqual(plan.folder_label("INBOX/Klasse 7b"), "Posteingang / Klasse 7b")
-        self.assertEqual(plan.folder_label("INBOXEN"), "INBOXEN")
-
-
 class RemainingTest(unittest.TestCase):
     def test_format_count(self):
         self.assertEqual(sync.format_count(7), "7")
@@ -231,12 +217,11 @@ class SyncFrameTest(unittest.TestCase):
         f = self.f
         f.on_event("preview", {"total": 1243, "folders": [("INBOX", 1200), ("Elternbriefe &AMQ-", 43)]})
         self.assertEqual(f.headline["text"], "Bereit zum Übertragen")
-        listing = f.preview.get("1.0", "end")
-        self.assertIn("Posteingang", listing)
-        self.assertIn("Elternbriefe Ä", listing)
-        self.assertIn("1.200", listing)
+        self.assertEqual(str(f.detail["text"]), "1.243 neue Mail(s) werden ins neue Postfach kopiert.")
+        self.assertFalse(f.bar.winfo_manager())
         f.main_button.invoke()  # "Übertragen"
         self.assertEqual(self.calls, ["proceed"])
+        self.assertTrue(f.bar.winfo_manager())
         f.on_event("planned", {"total": 1243, "folders": []})
         f.on_event("folder", {"i": 1, "n": 2, "name": "INBOX"})
         f.started -= 60
