@@ -12,20 +12,21 @@ Kopiert Mails vom alten Postfach ins neue. Jede Mail genau einmal, so oft man wi
 
 ## Installieren
 
-**Mac:** Die heruntergeladene Datei öffnen und **Christinas Mail-Sync** auf den Ordner **Programme** ziehen.
-Dann die App aus „Programme“ starten. Damit sie im Dock bleibt: im Dock auf das Symbol
+**Mac:** Öffne die heruntergeladene Datei und ziehe **Christinas Mail-Sync** auf den Ordner **Programme**.
+Starte die App dann aus „Programme“. Damit sie im Dock bleibt: im Dock auf das Symbol
 rechtsklicken → **Optionen** → **Im Dock behalten**.
 
-**Windows:** Die heruntergeladene Datei öffnen. Falls „Der Computer wurde durch Windows geschützt“
-erscheint: **Weitere Informationen** → **Trotzdem ausführen**. Dann den Schritten folgen.
+**Windows:** Öffne die heruntergeladene Datei. Falls „Der Computer wurde durch Windows geschützt“
+erscheint: **Weitere Informationen** → **Trotzdem ausführen**. Folge dann den Schritten.
 
 ## Einrichten
 
 Beim ersten Start öffnen sich die Einstellungen:
 
-1. **Einrichtungscode** von der Kollegin kopieren und in der App auf **Einfügen** klicken.
-2. Die beiden **Passwörter** eingeben.
-3. **Prüfen und speichern** klicken.
+1. Du hast von mir einen **Einrichtungscode** bekommen? Dann kopiere ihn und klicke in der App auf **Einfügen**.
+   Ansonsten trage die Werte von Hand ein.
+2. Gib die beiden **Passwörter** ein.
+3. Klicke auf **Prüfen und speichern**.
 
 Ab dann genügt ein Doppelklick auf die App.
 
@@ -33,12 +34,12 @@ Ab dann genügt ein Doppelklick auf die App.
   <img src="docs/screenshots/einstellungen.png" alt="Einstellungen unter macOS und Windows">
 </p>
 
-## Code für eine Kollegin erstellen
+## Code für einen Kollegen oder eine Kollegin erstellen
 
-1. In der App auf **Einstellungen** klicken.
-2. Ihre E-Mail-Adresse und ihren Benutzernamen eintragen.
-3. **Kopieren** klicken und den Code an sie schicken.
-4. **Abbrechen** klicken – nicht speichern. Die eigenen Einstellungen bleiben so, wie sie waren.
+1. Klicke in der App auf **Einstellungen**.
+2. Trage die E-Mail-Adresse und den Benutzernamen des Kollegen oder der Kollegin ein.
+3. Klicke auf **Kopieren** und schicke den Code an ihn oder sie.
+4. Klicke auf **Abbrechen** – nicht speichern. Deine eigenen Einstellungen bleiben so, wie sie waren.
 
 Der Code enthält nie Passwörter.
 
