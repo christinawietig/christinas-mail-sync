@@ -20,9 +20,14 @@ Die README ist für Anwenderinnen und Anwender (nicht technisch, Deutsch). Techn
   über `--sslargs SSL_verify_mode=1` + certifi. Passwörter nur über temporäre Passfiles.
 - `src/mailsync/setupcode.py`: Einrichtungscode `MS1-…` (Crockford-Base32, Deflate, CRC-32).
   Enthält Server, Ports, Benutzernamen, ausgeschlossene Ordner – **nie Passwörter**.
-- `src/mailsync/gui.py`: tkinter. Einstellungen mit live mitlaufendem Code (Kopieren/Einfügen), Sync-Fortschritt.
+- `src/mailsync/gui.py`: tkinter. Einstellungen mit live mitlaufendem Code (Kopieren/Einfügen), Sync-Fortschritt
+  nach Mails mit Restzeit, nach Fehlern „Protokoll kopieren“ (`sync.support_text`: Passwörter maskiert, gekürzt).
+- Vorschau: Beim ersten Lauf in ein Zielpostfach meldet `Sync` `preview` und wartet auf `proceed()`/`stop()`.
+  Bestätigt wird pro Ziel in `bestaetigt.txt` (Datenordner); `--sync-headless` bestätigt selbst.
+- `src/mailsync/update.py`: Update-Hinweis. Liest nur die Weiterleitung von `/releases/latest` auf
+  `/releases/tag/vX.Y.Z` (keine API, kein Rate-Limit, keine Daten). Offline passiert nichts.
 - `src/mailsync/credentials.py`: `keyring` (macOS-Schlüsselbund, Windows-Anmeldeinformationsverwaltung).
-- Versteckte Aufrufe für Tests: `--selftest DATEI HOST1 HOST2`, `--sync-headless DATEI`
+- Versteckte Aufrufe für Tests: `--selftest DATEI HOST1 HOST2` (prüft auch die Update-Abfrage), `--sync-headless DATEI`
   (Passwörter aus `MAILSYNC_PASSWORD1/2`). `MAILSYNC_DATA_DIR` und `MAILSYNC_CA_FILE` ersetzen Datenordner und CA.
 
 - Abgleich: Bei jedem Sync werden beide Postfächer neu gelesen. Bekannt = Ziel ∪ `uebertragen.txt`.
@@ -78,6 +83,7 @@ PYTHONPATH=src .venv/bin/python tests/e2e.py -- "dist/Christinas Mail-Sync.app/C
 - `screenshots.yml` (manuell): `scripts/screenshots.py` mit Beispieldaten. Artefakte herunterladen
   (`gh run download`) und mit `scripts/combine-screenshots.py ORDNER docs/screenshots` paarweise
   zusammensetzen (macOS links, Windows rechts, gleich hoch, ein Bild – sonst bricht GitHub sie um).
+  macOS-Aufnahmen mit echtem Fensterschatten, Windows bekommt einen passenden nachgebauten.
 
 ## Offene Punkte
 

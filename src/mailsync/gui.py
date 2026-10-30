@@ -375,7 +375,7 @@ class SyncFrame(ttk.Frame):
         self._folder = (1, 1)
         self.headline = ttk.Label(self, text="Mail-Sync läuft …", font=("", 15, "bold"))
         self.headline.pack(anchor="w")
-        self.detail = ttk.Label(self, text="Verbinde mit den Servern …", width=52, wraplength=420, justify="left")
+        self.detail = ttk.Label(self, text="Verbinde mit den Servern …", wraplength=420, justify="left")
         self.detail.pack(anchor="w", pady=(4, 10))
         # Vorschau beim ersten Lauf: neue Mails je Ordner
         self.preview = tk.Text(self, height=8, width=52, relief="solid", borderwidth=1, highlightthickness=0,

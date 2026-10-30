@@ -1,4 +1,4 @@
-# Christinas Mail-Sync
+# <img src="assets/MailSync-256.png" width="56" align="center" alt=""> Christinas Mail-Sync
 
 Kopiert Mails vom alten Postfach ins neue. Jede Mail genau einmal, so oft man will.
 
@@ -29,9 +29,22 @@ Beim ersten Start öffnen sich die Einstellungen:
 
 Ab dann genügt ein Doppelklick auf die App.
 
+Beim allerersten Sync zeigt die App erst, wie viele Mails aus welchem Ordner kommen.
+Mit **Übertragen** geht es los, mit **Abbrechen** passiert nichts.
+
 <p align="center">
   <img src="docs/screenshots/einstellungen.png" alt="Einstellungen unter macOS und Windows">
 </p>
+
+<p align="center">
+  <img src="docs/screenshots/vorschau.png" alt="Vorschau vor dem ersten Sync unter macOS und Windows">
+</p>
+
+## Neue Version
+
+Gibt es eine neue Version, zeigt die App oben einen gelben Hinweis. Klicke darauf und installiere
+die heruntergeladene Datei einfach über die alte, genau wie oben beim Installieren.
+Einstellungen und Passwörter bleiben erhalten.
 
 ## Code für einen Kollegen oder eine Kollegin erstellen
 
@@ -48,6 +61,8 @@ Der Code enthält nie Passwörter.
 - Ordner, Datum und Gelesen-Markierung bleiben erhalten.
 - Eine im neuen Postfach gelöschte Mail kommt nicht wieder.
 - **Stopp** schadet nicht. Beim nächsten Start geht es weiter.
+- Hat etwas nicht geklappt, klicke auf **Protokoll kopieren** und schicke es mir.
+  Passwörter stehen nicht darin.
 - Passwörter liegen im Schlüsselbund (Mac) bzw. in der Anmeldeinformationsverwaltung (Windows),
   alles andere im Ordner `Christinas Mail-Sync` unter `~/Library/Application Support` (Mac)
   bzw. `%APPDATA%` (Windows). Die Verbindungen sind verschlüsselt.
