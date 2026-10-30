@@ -224,7 +224,7 @@ def main():
         _, data = m.list('""', '""')
         d = re.search(rb'"(.)"', data[0]).group(1).decode()
         klasse, trash = "INBOX%sKlasse 7b" % d, "INBOX%sTrash" % d
-        archiv, eltern = "Archiv 2025", "Elternbriefe &AMQ-"  # "Elternbriefe Ä" (IMAP-UTF-7)
+        archiv, eltern = "Archiv 2025", "Elternbriefe &AMQ-"  # Elternbriefe mit grossem A-Umlaut (IMAP-UTF-7)
         for f in (klasse, trash, archiv, eltern):
             assert m.create('"%s"' % f)[0] == "OK", f
         append(m, "INBOX", "A Begruessung")

@@ -8,6 +8,7 @@ fuehrt daher nie zu Duplikaten. Nur eine Richtung, es wird nichts geloescht.
 Passwoerter gehen nur ueber temporaere Dateien (nur fuer den Nutzer lesbar) an
 imapsync und werden am Ende des Laufs geloescht. Sie erscheinen nie in Logs.
 """
+import glob
 import os
 import re
 import shutil
@@ -129,11 +130,18 @@ class Sync:
         self.on_event = on_event
         self._stop = threading.Event()
         self._proc = None
+        self._thread = None
         self.log_path = os.path.join(config.log_dir(), "letzter-lauf.txt")
         self._log = None
 
     def start(self):
-        threading.Thread(target=self._run, daemon=True).start()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def join(self, timeout):
+        """Kurz auf das Ende warten, damit die Passwortdateien geloescht werden."""
+        if self._thread:
+            self._thread.join(timeout)
 
     def stop(self):
         self._stop.set()
@@ -152,11 +160,13 @@ class Sync:
 
     def _run(self):
         try:
-            with open(self.log_path, "w", encoding="utf-8") as self._log:
-                self._say("%s  Start" % time.strftime("%Y-%m-%d %H:%M:%S"))
-                with Lock(os.path.join(config.data_dir(), "sync.lock")):
+            # Erst sperren, dann das Protokoll leeren - sonst loescht ein zweiter
+            # Start das Protokoll des laufenden Syncs
+            with Lock(os.path.join(config.data_dir(), "sync.lock")):
+                with open(self.log_path, "w", encoding="utf-8") as self._log:
+                    self._say("%s  Start" % time.strftime("%Y-%m-%d %H:%M:%S"))
                     result = self._sync()
-                self._say("Uebertragen gesamt: %d" % result.transferred)
+                    self._say("Uebertragen gesamt: %d" % result.transferred)
             self.on_event("done", result=result)
         except AlreadyRunning:
             self.on_event("error", text="Ein Sync läuft bereits. Bitte warten, bis er fertig ist.")
@@ -174,7 +184,8 @@ class Sync:
         self._say("Neue Mails: %d in %d Ordner(n)" % (total, len(todo)))
 
         result = Result()
-        tmp = tempfile.mkdtemp(prefix="mailsync-")
+        remove_stale_tempdirs()
+        tmp = tempfile.mkdtemp(prefix=TMP_PREFIX)
         try:
             pass1 = self._passfile(tmp, "p1", self.source[3])
             pass2 = self._passfile(tmp, "p2", self.target[3])
@@ -193,10 +204,12 @@ class Sync:
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-        # Was jetzt im Ziel liegt, als uebertragen vermerken (auch nach Abbruch)
-        self.on_event("status", text="Merke mir die übertragenen Mails …")
-        _, noted = plan.update_state(state, self.target)
-        self._say("Neu vermerkt: %d" % noted)
+        # Was jetzt im Ziel liegt, als uebertragen vermerken (auch nach Abbruch).
+        # Ohne Uebertragung gibt es nichts Neues: Das Ziel wurde eben erst gelesen.
+        if result.transferred:
+            self.on_event("status", text="Merke mir die übertragenen Mails …")
+            _, noted = plan.update_state(state, self.target)
+            self._say("Neu vermerkt: %d" % noted)
         return result
 
     @staticmethod
@@ -222,7 +235,7 @@ class Sync:
             "--host1", host1, "--port1", str(port1), "--ssl1", "--user1", user1, "--passfile1", pass1,
             "--host2", host2, "--port2", str(port2), "--ssl2", "--user2", user2, "--passfile2", pass2,
             "--automap", "--subscribeall", "--noresyncflags", "--addheader", *ssl_args(),
-            "--tmpdir", tmp, "--logdir", config.log_dir(), "--noreleasecheck",
+            "--tmpdir", tmp, "--nolog", "--noreleasecheck",
             "--folder", folder, "--search1", "UID " + uids,
         ]
         flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
@@ -240,6 +253,16 @@ class Sync:
         rc = self._proc.wait()
         self._log.flush()
         return copied, rc
+
+
+TMP_PREFIX = "mailsync-"
+
+
+def remove_stale_tempdirs():
+    """Passwortdateien frueherer Laeufe loeschen, die nicht aufraeumen konnten (Absturz,
+    App beendet). Nur unter der Sync-Sperre aufrufen: dann laeuft kein anderer Sync."""
+    for path in glob.glob(os.path.join(tempfile.gettempdir(), TMP_PREFIX + "*")):
+        shutil.rmtree(path, ignore_errors=True)
 
 
 def describe_error(e):

@@ -11,11 +11,12 @@ Robust gegen Tipp- und Kopierfehler:
 import re
 import zlib
 
+from .config import DEFAULT_PORT
+
 PREFIX = "MS1"
 ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 _VALUE = {c: i for i, c in enumerate(ALPHABET)}
 _VALUE.update({"O": 0, "I": 1, "L": 1})
-DEFAULT_PORT = 993
 # Benutzernamen-Regel als ein Zeichen im Code
 _RULES = {"localpart": "l", "same": "s", "": ""}
 

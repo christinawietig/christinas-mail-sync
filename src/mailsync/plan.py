@@ -4,6 +4,7 @@ Jede Mail wird ueber ihre Message-ID erkannt (Ersatz ohne Message-ID: Hash aus
 Datum, Absender, Betreff). Die Liste aller jemals im Ziel gesehenen Mails steht in
 der Statusdatei. Was dort steht, wird nie wieder kopiert - egal in welchem Ordner
 die Mail in Quelle oder Ziel inzwischen liegt oder ob sie im Ziel geloescht wurde.
+Die Statusdatei gilt nur fuer das Zielpostfach, fuer das sie angelegt wurde.
 
 Beide Postfaecher werden nur lesend geoeffnet.
 """
@@ -99,43 +100,80 @@ def scan(m, folder):
     if typ != "OK":
         raise PlanError("Mails nicht lesbar in: " + folder)
     out = []
-    for item in data:
+    for i, item in enumerate(data):
         if not isinstance(item, tuple):
             continue
         uid = re.search(rb"UID (\d+)", item[0])
+        if not uid and i + 1 < len(data) and isinstance(data[i + 1], bytes):
+            # Manche Server senden die UID erst nach dem Literal: b' UID 42)'
+            uid = re.search(rb"UID (\d+)", data[i + 1])
         if not uid:
             raise PlanError("Antwort ohne UID in: " + folder)
         out.append((int(uid.group(1)), mail_key(unfold(item[1]))))
     return out
 
 
-def uid_set(uids):
-    """[1,2,3,7,9,10] -> '1:3,7,9:10'"""
-    uids = sorted(uids)
-    parts, start, prev = [], uids[0], uids[0]
-    for u in uids[1:] + [None]:
-        if u is not None and u == prev + 1:
+def uid_set(wanted, present=None):
+    """UID-Menge fuer IMAP, moeglichst kurz: [1,2,3,7,9,10] -> '1:3,7,9:10'.
+
+    present = alle UIDs im Ordner. Dann reicht ein Bereich ueber Luecken hinweg, die
+    zu keiner Mail gehoeren (geloeschte Mails): Ohne das wird die Liste bei grossen
+    Ordnern so lang, dass Windows den Befehl ablehnt (max. 32767 Zeichen).
+    """
+    wanted = set(wanted)
+    order = sorted(set(present) | wanted) if present is not None else sorted(wanted)
+    parts, start, prev = [], None, None
+    for u in order + [None]:
+        # Ohne present nur lueckenlose Folgen zusammenfassen (uebersprungene UIDs koennten Mails sein)
+        if u is not None and u in wanted and (start is None or present is not None or u == prev + 1):
+            if start is None:
+                start = u
             prev = u
             continue
-        parts.append(str(start) if start == prev else "%d:%d" % (start, prev))
-        if u is not None:
+        if start is not None:
+            parts.append(str(start) if start == prev else "%d:%d" % (start, prev))
+            start = None
+        if u is not None and u in wanted:
             start = prev = u
     return ",".join(parts)
 
 
-def load_state(path):
+def state_owner(target):
+    """Kennung des Zielpostfachs fuer die erste Zeile der Statusdatei."""
+    host, _, user, _ = target
+    return "# Ziel: %s %s" % (host.lower(), user.lower())
+
+
+def load_state(path, owner=None):
+    """Vermerkte Mails. Gehoert die Datei zu einem anderen Zielpostfach (Einstellungen
+    geaendert), zaehlt sie nicht - sonst kaemen dort bekannte Mails nie im neuen Ziel an."""
     if not os.path.exists(path):
         return set()
     with open(path, encoding="utf-8") as f:
-        return {line.rstrip("\n") for line in f if line.strip()}
+        lines = [line.rstrip("\n") for line in f if line.strip()]
+    if lines and lines[0].startswith("#"):
+        if owner is not None and lines[0] != owner:
+            return set()
+        lines = lines[1:]
+    return set(lines)
 
 
-def save_state(path, keys):
+def save_state(path, keys, owner=None):
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
+        if owner:
+            f.write(owner + "\n")
         for k in sorted(keys):
             f.write(k + "\n")
     os.replace(tmp, path)
+
+
+def _logout(m):
+    # Bei abgerissener Verbindung scheitert auch das Abmelden - der eigentliche Fehler zaehlt
+    try:
+        m.logout()
+    except Exception:
+        pass
 
 
 def update_state(state_path, target, stopped=lambda: False):
@@ -143,7 +181,8 @@ def update_state(state_path, target, stopped=lambda: False):
 
     target = (host, port, user, password). Liefert (Menge, Anzahl neu vermerkt).
     """
-    keys = load_state(state_path)
+    owner = state_owner(target)
+    keys = load_state(state_path, owner)
     before = len(keys)
     m = connect(*target)
     try:
@@ -152,8 +191,9 @@ def update_state(state_path, target, stopped=lambda: False):
                 raise Stopped()
             keys.update(k for _, k in scan(m, f))
     finally:
-        m.logout()
-        save_state(state_path, keys)
+        # Auch bei Abbruch: was bis hierhin gesehen wurde, bleibt vermerkt
+        save_state(state_path, keys, owner)
+        _logout(m)
     return keys, len(keys) - before
 
 
@@ -170,10 +210,12 @@ def plan(state_path, source, target, excludes, stopped=lambda: False):
             if any(r.search(f) for r in exclude_re):
                 continue
             # Liegt eine neue Mail in mehreren Quellordnern (z. B. Gesendet und
-            # Klassenordner), wird jedes Exemplar uebertragen - wie in der Quelle.
-            new = [uid for uid, key in scan(m, f) if key not in known]
+            # Klassenordner), wird jedes Exemplar uebertragen, das im selben Lauf neu ist.
+            # Kommt ein weiteres Exemplar erst spaeter dazu, gilt die Mail schon als bekannt.
+            mails = scan(m, f)
+            new = [uid for uid, key in mails if key not in known]
             if new:
-                out.append((f, uid_set(new), len(new)))
+                out.append((f, uid_set(new, [uid for uid, _ in mails]), len(new)))
     finally:
-        m.logout()
+        _logout(m)
     return out

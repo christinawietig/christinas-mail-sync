@@ -13,18 +13,35 @@ class PlanTest(unittest.TestCase):
         self.assertEqual(plan.uid_set([9, 1, 2, 3, 7, 10]), "1:3,7,9:10")
         self.assertEqual(plan.uid_set([5]), "5")
 
+    def test_uid_set_spans_gaps_of_deleted_mails(self):
+        # 4 und 8 gibt es nicht mehr (geloescht), 6 ist schon uebertragen
+        self.assertEqual(plan.uid_set([3, 5, 7, 9], present=[3, 5, 6, 7, 9]), "3:5,7:9")
+        # Grosser Ordner mit vielen Luecken bleibt ein einziger Bereich
+        present = list(range(1, 40000, 3))
+        self.assertEqual(plan.uid_set(present, present=present), "1:39997")
+
+    def test_scan_finds_uid_after_literal(self):
+        class M:
+            def select(self, *a, **k):
+                return "OK", [b"2"]
+
+            def uid(self, *a):
+                return "OK", [(b"1 (UID 7 BODY[HEADER.FIELDS (MESSAGE-ID)] {20}", b"Message-ID: <a@x>\r\n"), b")",
+                              (b"2 (BODY[HEADER.FIELDS (MESSAGE-ID)] {20}", b"Message-ID: <b@x>\r\n"), b" UID 9)"]
+        self.assertEqual(plan.scan(M(), "INBOX"), [(7, "<a@x>"), (9, "<b@x>")])
+
     def test_mail_key_uses_message_id(self):
         h = plan.unfold(b"Message-ID:\r\n <abc@example.org>\r\nSubject: Hallo\r\n")
         self.assertEqual(plan.mail_key(h), "<abc@example.org>")
 
     def test_mail_key_without_message_id_is_stable(self):
-        h = "Date: Mon, 1 Jan 2024\nFrom: a@b.de\nSubject: x\n"
+        h = "Date: Mon, 1 Jan 2024\nFrom: a@example.org\nSubject: x\n"
         self.assertTrue(plan.mail_key(h).startswith("nomid:"))
         self.assertEqual(plan.mail_key(h), plan.mail_key(h))
 
     def test_mail_key_ignores_imapsync_substitute_id(self):
         # Die Kopie (mit Ersatz-ID von imapsync --addheader) passt zum Original
-        h = "Date: Mon, 1 Jan 2024\nFrom: a@b.de\nSubject: x\n"
+        h = "Date: Mon, 1 Jan 2024\nFrom: a@example.org\nSubject: x\n"
         self.assertEqual(plan.mail_key("Message-Id: <17@imapsync>\n" + h), plan.mail_key(h))
 
     def test_quote(self):
@@ -36,6 +53,19 @@ class PlanTest(unittest.TestCase):
             self.assertEqual(plan.load_state(p), set())
             plan.save_state(p, {"<b>", "<a>"})
             self.assertEqual(plan.load_state(p), {"<a>", "<b>"})
+
+    def test_state_belongs_to_target(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "s.txt")
+            a = plan.state_owner(("imap.example.org", 993, "a", "pw"))
+            b = plan.state_owner(("imap.example.org", 993, "b", "pw"))
+            plan.save_state(p, {"<a>"}, a)
+            self.assertEqual(plan.load_state(p, a), {"<a>"})
+            # Anderes Zielpostfach: dort ist noch nichts angekommen
+            self.assertEqual(plan.load_state(p, b), set())
+            # Alte Datei ohne Kennung (vor dieser Version) gilt weiter
+            plan.save_state(p, {"<a>"})
+            self.assertEqual(plan.load_state(p, b), {"<a>"})
 
 
 class SyncTest(unittest.TestCase):
@@ -51,8 +81,8 @@ class SyncTest(unittest.TestCase):
 
     def test_suggest_target_user(self):
         s = config.Settings(target_user_rule="localpart")
-        self.assertEqual(s.suggest_target_user("c.muster@schule.de"), "c.muster")
-        self.assertEqual(config.Settings().suggest_target_user("c.muster@schule.de"), "")
+        self.assertEqual(s.suggest_target_user("c.muster@example.org"), "c.muster")
+        self.assertEqual(config.Settings().suggest_target_user("c.muster@example.org"), "")
 
 
 class DockTest(unittest.TestCase):
@@ -88,9 +118,9 @@ class SetupCodeTest(unittest.TestCase):
         self.assertEqual(setupcode.decode(setupcode.encode(*self.ARGS))["source_user"], "")
 
     def test_derive_rule(self):
-        self.assertEqual(setupcode.derive_rule("max@alt.de", "max"), "localpart")
-        self.assertEqual(setupcode.derive_rule("max@alt.de", "max@alt.de"), "same")
-        self.assertEqual(setupcode.derive_rule("max@alt.de", "m.x"), "")
+        self.assertEqual(setupcode.derive_rule("max@example.org", "max"), "localpart")
+        self.assertEqual(setupcode.derive_rule("max@example.org", "max@example.org"), "same")
+        self.assertEqual(setupcode.derive_rule("max@example.org", "m.x"), "")
 
     def test_tolerant_input(self):
         code = setupcode.encode(*self.ARGS)

@@ -59,7 +59,7 @@ class App:
         self.frame = None
         self.sync = None
         self.settings = config.load_settings()
-        # macOS: Menue "Christinas Mail-Sync" -> "Über Christinas Mail-Sync"
+        # macOS: Menue "Christinas Mail-Sync" -> "Ueber Christinas Mail-Sync" (Ueber-Dialog)
         if sys.platform == "darwin":
             self.root.createcommand("tkAboutDialog", self.show_about)
 
@@ -122,6 +122,8 @@ class App:
     def quit(self):
         if self.sync:
             self.sync.stop()
+            # Den Lauf noch aufraeumen lassen (Passwortdateien loeschen)
+            self.sync.join(5)
         self.root.destroy()
 
 
@@ -311,10 +313,11 @@ class SetupFrame(ttk.Frame):
                                        foreground=RED)
                 self.save_button.state(["!disabled"])
                 return
-            # Alte Eintraege aufraeumen, wenn sich Server oder Benutzer geaendert haben
-            for host, user, new_key in ((old.source_host, old.source_user, (new.source_host, new.source_user)),
-                                        (old.target_host, old.target_user, (new.target_host, new.target_user))):
-                if host and user and (host, user) != new_key:
+            # Alte Eintraege aufraeumen, wenn sich Server oder Benutzer geaendert haben.
+            # Nie einen, der gerade gespeichert wurde (z. B. alt und neu vertauscht).
+            keep = {(new.source_host, new.source_user), (new.target_host, new.target_user)}
+            for host, user in ((old.source_host, old.source_user), (old.target_host, old.target_user)):
+                if host and user and (host, user) not in keep:
                     credentials.delete_password(host, user)
             self.app.settings = new
             config.save_settings(new)
