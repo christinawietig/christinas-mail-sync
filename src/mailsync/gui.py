@@ -1,19 +1,21 @@
 """Oberflaeche: Einrichtung beim ersten Start, danach Fortschritt und Ergebnis."""
 import os
+import platform
 import queue
 import subprocess
 import sys
 import threading
+import time
 import tkinter as tk
 from dataclasses import asdict
 from tkinter import ttk
 
-from . import APP_NAME, __version__, config, credentials, plan, setupcode
-from .sync import Sync, describe_error
+from . import APP_NAME, __version__, config, credentials, plan, setupcode, update
+from .sync import Sync, describe_error, estimate_remaining, format_count, format_remaining, support_text
 
 PAD = 20
 RED, GREEN, GREY, LINK = "#b00020", "#1b7f3b", "#6b6b6b", "#1a5fd0"
-REPO_URL = "https://github.com/christinawietig/christinas-mail-sync"
+REPO_URL = update.REPO_URL
 # Feste Zeichenbreite fuer den Einrichtungscode
 MONO = ("Menlo", 12) if sys.platform == "darwin" else ("Consolas", 11) if sys.platform == "win32" else ("Courier", 11)
 
@@ -26,6 +28,20 @@ def bundled(*parts):
 
 def asset(name):
     return bundled("assets", name)
+
+
+def system_name():
+    if sys.platform == "darwin":
+        return "macOS " + platform.mac_ver()[0]
+    if sys.platform == "win32":
+        return "Windows " + platform.version()
+    return platform.platform()
+
+
+def download_url():
+    """Direkter Download der neuesten Version fuer dieses System."""
+    name = "Christinas-Mail-Sync-Setup.exe" if sys.platform == "win32" else "Christinas-Mail-Sync.dmg"
+    return update.LATEST_URL + "/download/" + name
 
 
 def open_path(path):
@@ -57,6 +73,7 @@ class App:
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
         self.events = queue.Queue()
         self.frame = None
+        self.banner = None
         self.sync = None
         self.settings = config.load_settings()
         # macOS: Menue "Christinas Mail-Sync" -> "Ueber Christinas Mail-Sync" (Ueber-Dialog)
@@ -73,11 +90,30 @@ class App:
         else:
             self.show_setup()
         self.root.after(100, self._poll)
+        # Neue Version? Im Hintergrund nachsehen, ohne Netz passiert einfach nichts
+        threading.Thread(target=self._check_update, daemon=True).start()
         if sys.platform == "darwin":
             # Einmalig ins Dock (im Hintergrund, Fehler egal)
             from . import dock
             self.root.after(1500, lambda: threading.Thread(target=dock.add_once, daemon=True).start())
         self.root.mainloop()
+
+    def _check_update(self):
+        latest = update.check()
+        if latest:
+            self.post("update", version=latest)
+
+    def show_update(self, version):
+        """Hinweis oben im Fenster, bleibt beim Wechsel zwischen Einstellungen und Sync."""
+        if self.banner:
+            return
+        self.banner = tk.Label(self.root, text="Neue Version %s verfügbar – hier klicken zum Herunterladen" % version,
+                               bg="#fff4c2", fg="#1f1f1f", cursor="hand2", padx=PAD, pady=8, anchor="w")
+        self.banner.bind("<Button-1>", lambda e: open_path(download_url()))
+        if self.frame:
+            self.banner.pack(fill="x", before=self.frame)
+        else:
+            self.banner.pack(fill="x")
 
     def _passwords(self):
         s = self.settings
@@ -113,7 +149,9 @@ class App:
         try:
             while True:
                 kind, data = self.events.get_nowait()
-                if self.frame and hasattr(self.frame, "on_event"):
+                if kind == "update":
+                    self.show_update(data["version"])
+                elif self.frame and hasattr(self.frame, "on_event"):
                     self.frame.on_event(kind, data)
         except queue.Empty:
             pass
@@ -329,23 +367,34 @@ class SyncFrame(ttk.Frame):
     def __init__(self, app, source_pw, target_pw):
         super().__init__(app.root, padding=PAD)
         self.app = app
+        self.passwords = (source_pw, target_pw)
         self.copied = 0
+        self.total = 0
+        self.started = None
+        self.previewing = False
         self._folder = (1, 1)
         self.headline = ttk.Label(self, text="Mail-Sync läuft …", font=("", 15, "bold"))
         self.headline.pack(anchor="w")
-        self.detail = ttk.Label(self, text="Verbinde mit den Servern …", width=52)
+        self.detail = ttk.Label(self, text="Verbinde mit den Servern …", width=52, wraplength=420, justify="left")
         self.detail.pack(anchor="w", pady=(4, 10))
+        # Vorschau beim ersten Lauf: neue Mails je Ordner
+        self.preview = tk.Text(self, height=8, width=52, relief="solid", borderwidth=1, highlightthickness=0,
+                               padx=8, pady=6, wrap="none")
         self.bar = ttk.Progressbar(self, mode="indeterminate", length=420)
         self.bar.pack(fill="x")
         self.bar.start(15)
+        self.eta = ttk.Label(self, text="", foreground=GREY)
+        self.eta.pack(anchor="w", pady=(4, 0))
 
         buttons = ttk.Frame(self)
-        buttons.pack(fill="x", pady=(14, 0))
+        buttons.pack(fill="x", pady=(10, 0))
         self.setup_button = ttk.Button(buttons, text="Einstellungen", command=app.show_setup)
+        self.copy_button = ttk.Button(buttons, text="Protokoll kopieren", command=self._copy_log)
         self.log_button = ttk.Button(buttons, text="Protokoll öffnen", command=self._open_log)
         self.about_button = ttk.Button(buttons, text="Über …", command=app.show_about)
         self.main_button = ttk.Button(buttons, text="Stopp", command=self._main)
         self.main_button.pack(side="right")
+        self.cancel_button = ttk.Button(buttons, text="Abbrechen", command=self._main)
 
         app.sync = Sync(app.settings, source_pw, target_pw, app.post)
         self.log_path = app.sync.log_path
@@ -354,56 +403,117 @@ class SyncFrame(ttk.Frame):
     def _open_log(self):
         open_path(self.log_path)
 
+    def _copy_log(self):
+        """Protokoll in die Zwischenablage, z. B. um es der Person zu schicken, die hilft."""
+        self.clipboard_clear()
+        self.clipboard_append(support_text(self.log_path, self.passwords, __version__, system_name()))
+        self.copy_button.configure(text="✓ Kopiert")
+
     def _main(self):
         if self.app.sync:
             self.main_button.state(["disabled"])
+            self.cancel_button.state(["disabled"])
             self.headline.configure(text="Wird abgebrochen …")
             self.app.sync.stop()
         else:
             self.app.quit()
 
+    def _start(self):
+        """Vorschau bestaetigt: jetzt uebertragen."""
+        self.previewing = False
+        self.preview.pack_forget()
+        self.cancel_button.pack_forget()
+        self.main_button.configure(text="Stopp", command=self._main, default="normal")
+        self.headline.configure(text="Mail-Sync läuft …")
+        self.app.root.unbind("<Return>")
+        self.app.sync.proceed()
+
     def on_event(self, kind, data):
         if kind == "status":
             self.detail.configure(text=data["text"])
-        elif kind == "folder":
+        elif kind == "preview":
+            self._show_preview(data["total"], data["folders"])
+        elif kind == "planned":
+            self.total = data["total"]
             self.bar.stop()
-            self.bar.configure(mode="determinate", maximum=data["n"], value=data["i"] - 1)
-            self._progress(data["i"], data["n"])
+            self.bar.configure(mode="determinate", maximum=max(self.total, 1), value=0)
+        elif kind == "folder":
             self._folder = (data["i"], data["n"])
+            if self.started is None:
+                self.started = time.monotonic()
+            self._progress()
         elif kind == "copied":
             self.copied += 1
-            self._progress(*self._folder)
+            self._progress()
         elif kind == "done":
             r = data["result"]
-            if r.stopped:
+            if r.stopped and self.previewing:
+                self._finish("Abgebrochen.", "Es wurde nichts übertragen.", ok=True)
+            elif r.stopped:
                 self._finish("Sync abgebrochen.", "Beim nächsten Start geht es einfach weiter.", ok=True)
             elif r.failed_folders:
                 self._finish("Nicht alles hat geklappt.",
-                             "%d Mail(s) übertragen, in %d Ordner(n) gab es Fehler. "
-                             "Einfach später nochmal starten." % (r.transferred, r.failed_folders), ok=False)
+                             "%s Mail(s) übertragen, in %d Ordner(n) gab es Fehler. Einfach später nochmal "
+                             "starten. Wenn es wieder nicht klappt: „Protokoll kopieren“ und an die Person "
+                             "schicken, die dir hilft." % (format_count(r.transferred), r.failed_folders), ok=False)
             elif r.transferred == 0:
                 self._finish("Alles aktuell.", "Keine neuen Mails.", ok=True)
             else:
-                self._finish("Fertig.", "%d neue Mail(s) übertragen." % r.transferred, ok=True)
+                self._finish("Fertig.", "%s neue Mail(s) übertragen." % format_count(r.transferred), ok=True)
         elif kind == "error":
             self._finish("Der Mail-Sync ist fehlgeschlagen.", data["text"], ok=False)
 
-    def _progress(self, i, n):
-        self.bar.configure(value=i - 1)
-        self.detail.configure(text="Ordner %d von %d – %d neue Mail(s) bisher" % (i, n, self.copied))
+    def _show_preview(self, total, folders):
+        self.previewing = True
+        self.bar.stop()
+        self.bar.pack_forget()
+        self.headline.configure(text="Bereit zum Übertragen")
+        self.detail.configure(text="%s neue Mail(s) in %d Ordner(n). Es wird nur kopiert, im alten Postfach "
+                                   "bleibt alles, wie es ist." % (format_count(total), len(folders)))
+        self.preview.configure(state="normal", height=min(max(len(folders), 3), 10))
+        width = max(len(plan.folder_label(f)) for f, _ in folders) + 2
+        for f, n in folders:
+            self.preview.insert("end", "%-*s%8s\n" % (width, plan.folder_label(f), format_count(n)))
+        self.preview.configure(state="disabled", font=MONO)
+        self.preview.pack(fill="x", before=self.eta)
+        self.main_button.configure(text="Übertragen", command=self._start, default="active")
+        self.cancel_button.pack(side="right", padx=(0, 8))
+        self.app.root.bind("<Return>", lambda e: self._start())
+        self.app.root.lift()
+
+    def _progress(self):
+        i, n = self._folder
+        done = min(self.copied, self.total) if self.total else self.copied
+        self.bar.configure(value=done)
+        if self.total:
+            self.detail.configure(text="Ordner %d von %d – %s von %s Mail(s)"
+                                       % (i, n, format_count(done), format_count(self.total)))
+        else:
+            self.detail.configure(text="Ordner %d von %d – %s neue Mail(s) bisher" % (i, n, format_count(done)))
+        left = estimate_remaining(done, self.total, time.monotonic() - (self.started or time.monotonic()))
+        self.eta.configure(text="Noch " + format_remaining(left) if left is not None else "")
 
     def _finish(self, title, text, ok):
+        self.app.root.unbind("<Return>")
+        self.preview.pack_forget()
+        self.cancel_button.pack_forget()
+        if not self.bar.winfo_ismapped():
+            self.bar.pack(fill="x", before=self.eta)
         self.bar.stop()
         self.bar.configure(mode="determinate", maximum=1, value=1 if ok else 0)
+        self.eta.configure(text="")
         self.headline.configure(text=title)
-        self.detail.configure(text=text, wraplength=420)
-        self.main_button.configure(text="Schließen")
+        self.detail.configure(text=text)
+        self.main_button.configure(text="Schließen", command=self._main, default="active")
         self.main_button.state(["!disabled"])
         self.app.sync = None
         self.setup_button.pack(side="left")
-        if not ok:
+        if ok:
+            self.about_button.pack(side="left", padx=(8, 0))
+        else:
+            # Hilfe holen: Protokoll weitergeben oder selbst ansehen
+            self.copy_button.pack(side="left", padx=(8, 0))
             self.log_button.pack(side="left", padx=(8, 0))
-        self.about_button.pack(side="left", padx=(8, 0))
         self.app.root.bell()
         self.app.root.lift()
 

@@ -199,7 +199,7 @@ def run_app(app, data_dir, tmp, run):
         if os.path.exists(log):
             print(text)
         raise SystemExit("App-Lauf %d: %s" % (run, result))
-    return result["transferred"]
+    return result
 
 
 def check(name, ok):
@@ -251,7 +251,9 @@ def main():
         app = args.app
 
         print("Lauf 1: alles Neue uebertragen")
-        n = run_app(app, data_dir, tmp, 1)
+        r = run_app(app, data_dir, tmp, 1)
+        n = r["transferred"]
+        check("Vorschau vor dem ersten Lauf mit 8 Mails (gemeldet: %s)" % r["preview"], r["preview"] == 8)
         box = contents("neu")
         check("8 Mails uebertragen (gemeldet: %d)" % n, n == 8)
         check("jede Mail genau einmal im Ziel", all_subjects(box) == {
@@ -268,7 +270,9 @@ def main():
         check("Empfangsdatum erhalten", box["INBOX"]["B Gelesen"][1] == contents("alt")["INBOX"]["B Gelesen"][1])
 
         print("Lauf 2: nichts Neues")
-        n = run_app(app, data_dir, tmp, 2)
+        r = run_app(app, data_dir, tmp, 2)
+        n = r["transferred"]
+        check("keine Vorschau mehr beim zweiten Lauf", r["preview"] is None)
         check("0 Mails uebertragen (gemeldet: %d)" % n, n == 0)
         log = open(os.path.join(data_dir, "Logs", "letzter-lauf.txt"), encoding="utf-8").read()
         check("keine Mail mehr als neu erkannt", "Neue Mails: 0 " in log)
@@ -289,7 +293,9 @@ def main():
         m.expunge()
         append(m, "INBOX", "F Neu")
         m.logout()
-        n = run_app(app, data_dir, tmp, 3)
+        r = run_app(app, data_dir, tmp, 3)
+        n = r["transferred"]
+        check("Fortschritt kennt die Gesamtzahl (gemeldet: %s)" % r["planned"], r["planned"] == 1)
         box = contents("neu")
         subjects = all_subjects(box)
         check("1 Mail uebertragen (gemeldet: %d)" % n, n == 1)

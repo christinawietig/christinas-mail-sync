@@ -10,6 +10,13 @@ def selftest(out_path, host1, host2):
     from mailsync.sync import selftest
     rc, out = selftest(host1, host2)
     try:
+        # Kommt die App an die Release-Seite (Zertifikate im Paket)?
+        from mailsync import update
+        out += "\nUpdate-Pruefung: neueste Version %s\n" % update.latest_version()
+    except Exception as e:
+        rc = 1
+        out += "\nUpdate-Pruefung: %r\n" % e
+    try:
         credentials.set_password("selftest.invalid", "selftest", "x")
         ok = credentials.get_password("selftest.invalid", "selftest") == "x"
         credentials.delete_password("selftest.invalid", "selftest")
@@ -29,21 +36,26 @@ def headless_sync(out_path):
     from dataclasses import asdict
     from mailsync import config
     from mailsync.sync import Sync
-    events, finished = [], threading.Event()
+    events, finished, seen = [], threading.Event(), {"preview": None, "planned": None}
 
     def on_event(kind, **data):
-        if kind == "done":
+        if kind in ("preview", "planned"):
+            seen[kind] = data["total"]
+            if kind == "preview":
+                sync.proceed()  # Vorschau beim ersten Lauf: wie "Übertragen" klicken
+        elif kind == "done":
             events.append({"kind": kind, **asdict(data["result"])})
             finished.set()
         elif kind == "error":
             events.append({"kind": kind, "text": data["text"]})
             finished.set()
 
-    Sync(config.load_settings(), os.environ["MAILSYNC_PASSWORD1"], os.environ["MAILSYNC_PASSWORD2"],
-         on_event).start()
+    sync = Sync(config.load_settings(), os.environ["MAILSYNC_PASSWORD1"], os.environ["MAILSYNC_PASSWORD2"],
+                on_event)
+    sync.start()
     finished.wait()
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(events[0], f)
+        json.dump({**events[0], **seen}, f)
     sys.exit(0 if events[0]["kind"] == "done" else 1)
 
 

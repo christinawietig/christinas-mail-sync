@@ -114,7 +114,7 @@ jobs:
         shell: pwsh
         run: |
           $p = Start-Process -FilePath $env:INSTALLED_EXE -ArgumentList '--selftest', 'selftest.txt', 'imap.gmail.com', 'outlook.office365.com' -Wait -PassThru
-          Get-Content selftest.txt | Select-String -Pattern 'Exiting|SSL|error|Schluesselbund' | Select-Object -First 20
+          Get-Content selftest.txt | Select-String -Pattern 'Exiting|SSL|error|Schluesselbund|Update-Pruefung' | Select-Object -First 20
           if ($p.ExitCode -ne 0) { Get-Content selftest.txt; exit 1 }
       - uses: actions/setup-java@v4
         with:
@@ -171,7 +171,7 @@ jobs:
           codesign -v --strict --deep "$APP"
           codesign -dvv "$APP" 2>&1 | grep -E 'Authority|TeamIdentifier|flags' || true
           "$APP/Contents/MacOS/Christinas Mail-Sync" --selftest selftest.txt imap.gmail.com outlook.office365.com || { cat selftest.txt; exit 1; }
-          grep -E 'Exiting|Schluesselbund' selftest.txt
+          grep -E 'Exiting|Schluesselbund|Update-Pruefung' selftest.txt
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

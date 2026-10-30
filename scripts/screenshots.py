@@ -11,7 +11,7 @@ import os
 import subprocess
 import sys
 
-from mailsync import config, credentials, gui, setupcode
+from mailsync import config, credentials, gui, setupcode, update
 from mailsync.sync import Result
 
 DEMO = config.Settings(
@@ -33,6 +33,9 @@ class FakeSync:
     def stop(self):
         pass
 
+    def proceed(self):
+        pass
+
 
 def capture(win, path):
     win.update()
@@ -44,7 +47,8 @@ def capture(win, path):
         ids = [d["kCGWindowNumber"] for d in windows
                if d["kCGWindowOwnerPID"] == os.getpid() and d.get("kCGWindowIsOnscreen")
                and abs(d["kCGWindowBounds"]["X"] - x) <= 2 and abs(d["kCGWindowBounds"]["Width"] - w) <= 2]
-        subprocess.run(["screencapture", "-x", "-o", "-l", str(ids[0]), path], check=True)
+        # Mit dem echten Fensterschatten von macOS (ohne -o), transparenter Hintergrund
+        subprocess.run(["screencapture", "-x", "-l", str(ids[0]), path], check=True)
     else:
         import ctypes
         from ctypes import wintypes
@@ -62,6 +66,7 @@ def main():
     os.makedirs(out, exist_ok=True)
     credentials.get_password = lambda host, user: None
     gui.Sync = FakeSync
+    update.check = lambda: None
     app = gui.App()
     root = app.root
     code = setupcode.encode(DEMO.source_host, DEMO.source_port, DEMO.target_host, DEMO.target_port,
@@ -89,16 +94,31 @@ def main():
         app.settings = DEMO
         app.show_sync("", "")
         f = app.frame
+        f.on_event("planned", {"total": 412, "folders": []})
         f.on_event("folder", {"i": 4, "n": 11, "name": "INBOX.Klasse 7b"})
-        for _ in range(23):
+        f.started -= 95  # 95 Sekunden laufen schon -> Restzeit wird angezeigt
+        for _ in range(123):
             f.on_event("copied", {})
-        f.bar.configure(value=3.6)
         return "2-sync"
 
     @step
     def done():
         app.frame.on_event("done", {"result": Result(transferred=37)})
         return "3-fertig"
+
+    @step
+    def preview():
+        # Erster Lauf: Vorschau vor dem Uebertragen
+        app.show_sync("", "")
+        app.frame.on_event("preview", {"total": 1655, "folders": [
+            ("INBOX", 1243), ("INBOX.Klasse 7b", 214), ("Elternbriefe &AMQ-", 37),
+            ("Gesendet", 161)]})
+        return "5-vorschau"
+
+    @step
+    def update_banner():
+        app.show_update("9.9.9")
+        return "6-update"
 
     @step
     def about():

@@ -8,6 +8,7 @@ Die Statusdatei gilt nur fuer das Zielpostfach, fuer das sie angelegt wurde.
 
 Beide Postfaecher werden nur lesend geoeffnet.
 """
+import base64
 import hashlib
 import imaplib
 import os
@@ -87,6 +88,30 @@ def mail_key(headers):
         return mid.group(0)
     raw = "|".join(field(headers, n) for n in ("Date", "From", "Subject"))
     return "nomid:" + hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+def decode_folder(name):
+    """Ordnernamen lesbar machen: IMAP-UTF-7 ('Elternbriefe &AMQ-' -> 'Elternbriefe Ä')."""
+    def utf7(mm):
+        b64 = mm.group(1)
+        if not b64:
+            return "&"
+        b64 = b64.replace(",", "/")
+        try:
+            return base64.b64decode(b64 + "=" * (-len(b64) % 4)).decode("utf-16-be")
+        except (ValueError, UnicodeDecodeError):
+            return mm.group(0)
+    return re.sub(r"&([A-Za-z0-9+,]*)-", utf7, name)
+
+
+def folder_label(name):
+    """Ordnername fuer die Anzeige: lesbar, INBOX heisst Posteingang."""
+    name = decode_folder(name)
+    if name.upper() == "INBOX":
+        return "Posteingang"
+    if name[:6].upper() in ("INBOX.", "INBOX/"):
+        return "Posteingang / " + name[6:]
+    return name
 
 
 def scan(m, folder):

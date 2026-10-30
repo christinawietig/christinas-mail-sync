@@ -120,7 +120,12 @@ class Sync:
     """Fuehrt einen Lauf in einem eigenen Thread aus.
 
     on_event(art, **daten) wird aus diesem Thread aufgerufen:
-      status(text) | folder(i, n, name) | copied() | done(result) | error(text)
+      status(text) | planned(total, folders) | preview(total, folders) | folder(i, n, name)
+      | copied() | done(result) | error(text)
+    folders = [(Ordnername, Anzahl neuer Mails), ...]
+
+    Beim ersten Lauf in ein Zielpostfach wartet der Lauf nach "preview", bis proceed()
+    (Uebertragen) oder stop() (Abbrechen) aufgerufen wird.
     """
 
     def __init__(self, settings, source_password, target_password, on_event):
@@ -129,6 +134,7 @@ class Sync:
         self.exclude = ["^%s$" % re.escape(f) for f in settings.exclude_folders]
         self.on_event = on_event
         self._stop = threading.Event()
+        self._go = threading.Event()
         self._proc = None
         self._thread = None
         self.log_path = os.path.join(config.log_dir(), "letzter-lauf.txt")
@@ -143,8 +149,13 @@ class Sync:
         if self._thread:
             self._thread.join(timeout)
 
+    def proceed(self):
+        """Nach der Vorschau: wirklich uebertragen."""
+        self._go.set()
+
     def stop(self):
         self._stop.set()
+        self._go.set()
         p = self._proc
         if p and p.poll() is None:
             if sys.platform == "win32":
@@ -179,9 +190,22 @@ class Sync:
         exe = imapsync_cmd()
         state = config.state_file()
         self.on_event("status", text="Prüfe die Postfächer …")
+        owner = plan.state_owner(self.target)
+        first = not is_confirmed(owner)
         todo = plan.plan(state, self.source, self.target, self.exclude, self._stop.is_set)
         total = sum(n for _, _, n in todo)
         self._say("Neue Mails: %d in %d Ordner(n)" % (total, len(todo)))
+        folders = [(f, n) for f, _, n in todo]
+        if first and total:
+            # Erster Lauf in dieses Ziel: erst zeigen, was kommt, dann auf Bestaetigung warten
+            self._say("Erster Lauf: warte auf Bestaetigung")
+            self.on_event("preview", total=total, folders=folders)
+            self._go.wait()
+            if self._stop.is_set():
+                raise plan.Stopped()
+            set_confirmed(owner)
+            self._say("Bestaetigt")
+        self.on_event("planned", total=total, folders=folders)
 
         result = Result()
         remove_stale_tempdirs()
@@ -254,6 +278,76 @@ class Sync:
         rc = self._proc.wait()
         self._log.flush()
         return copied, rc
+
+
+def _confirmed_path():
+    return os.path.join(config.data_dir(), "bestaetigt.txt")
+
+
+def is_confirmed(owner):
+    """Wurde der erste Lauf in dieses Zielpostfach schon bestaetigt?"""
+    try:
+        with open(_confirmed_path(), encoding="utf-8") as f:
+            return f.read().strip() == owner
+    except OSError:
+        return False
+
+
+def set_confirmed(owner):
+    with open(_confirmed_path(), "w", encoding="utf-8") as f:
+        f.write(owner + "\n")
+
+
+def format_count(n):
+    """1243 -> '1.243'"""
+    return "{:,}".format(n).replace(",", ".")
+
+
+def format_remaining(seconds):
+    """Restzeit grob und freundlich: 'unter einer Minute', 'ca. 5 Minuten', 'ca. 2 Std. 10 Min.'"""
+    minutes = int(round(seconds / 60.0))
+    if minutes < 1:
+        return "unter einer Minute"
+    if minutes == 1:
+        return "ca. 1 Minute"
+    if minutes < 60:
+        return "ca. %d Minuten" % minutes
+    if minutes >= 600:
+        return "ca. %d Stunden" % round(minutes / 60.0)
+    # Ueber einer Stunde auf 10 Minuten runden, das genuegt
+    h, m = divmod(int(round(minutes / 10.0)) * 10, 60)
+    return "ca. %d Std." % h if m == 0 else "ca. %d Std. %d Min." % (h, m)
+
+
+def estimate_remaining(done, total, elapsed):
+    """Sekunden bis zum Ende oder None, solange die Schaetzung zu unsicher ist."""
+    if done < 10 or elapsed < 20 or total <= done:
+        return None
+    return elapsed / done * (total - done)
+
+
+SUPPORT_HEAD, SUPPORT_TAIL = 60, 1500
+
+
+def support_text(log_path, secrets, version, system):
+    """Protokoll zum Weitergeben (z. B. per Mail an die Person, die hilft).
+
+    Passwoerter stehen nie im Protokoll; zur Sicherheit werden sie trotzdem ersetzt.
+    Sehr lange Protokolle werden in der Mitte gekuerzt: Anfang und Ende zaehlen.
+    """
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        lines = ["(Kein Protokoll vorhanden)"]
+    if len(lines) > SUPPORT_HEAD + SUPPORT_TAIL:
+        skipped = len(lines) - SUPPORT_HEAD - SUPPORT_TAIL
+        lines = lines[:SUPPORT_HEAD] + ["… %d Zeilen ausgelassen …" % skipped] + lines[-SUPPORT_TAIL:]
+    text = "\n".join(["Christinas Mail-Sync %s, %s" % (version, system), ""] + lines) + "\n"
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, "********")
+    return text
 
 
 TMP_PREFIX = "christinas-mail-sync-"
