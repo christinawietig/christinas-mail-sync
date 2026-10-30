@@ -448,7 +448,7 @@ class AboutDialog(tk.Toplevel):
         scroll.pack(side="right", fill="y")
         try:
             with open(bundled("LICENSE"), encoding="utf-8") as fh:
-                lic.insert("1.0", fh.read())
+                lic.insert("1.0", unwrap(fh.read()))
         except OSError:
             lic.insert("1.0", "MIT License – siehe " + REPO_URL + "/blob/main/LICENSE")
         lic.configure(state="disabled")
@@ -463,6 +463,12 @@ class AboutDialog(tk.Toplevel):
         x = app.root.winfo_rootx() + (app.root.winfo_width() - self.winfo_reqwidth()) // 2
         self.geometry("+%d+%d" % (max(x, 0), max(app.root.winfo_rooty() - 40, 20)))
         self.grab_set()
+
+
+def unwrap(text):
+    """Absaetze zu je einer Zeile zusammenfuegen, damit das Textfeld selbst umbricht."""
+    paras = text.strip().split("\n\n")
+    return "\n\n".join(" ".join(line.strip() for line in p.splitlines()) for p in paras)
 
 
 def main():
